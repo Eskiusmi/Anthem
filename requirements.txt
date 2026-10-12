@@ -1,0 +1,4 @@
+pygame-ce>=2.4
+librosa>=0.10
+psutil>=5.9
+sounddevice>=0.4.6

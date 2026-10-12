@@ -1,0 +1,6 @@
+data/
+__pycache__/
+*.pyc
+test_server.py
+README.md
+RENDER.md

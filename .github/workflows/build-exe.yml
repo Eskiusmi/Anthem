@@ -1,0 +1,60 @@
+# 在 GitHub 的 Windows 机器上打包 CS2 音乐盒,不需要你自己有打包环境。
+#   手动运行:仓库页面 → Actions → Build Windows exe → Run workflow;完成后在那次运行的 Artifacts 里下载
+#   发版:推送 v 开头的标签(例如 git tag v0.7.0 && git push origin v0.7.0),会自动建 Release 并附上 zip
+name: Build Windows exe
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write          # 推标签时创建 Release 需要
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 40
+    env:
+      PYTHONUTF8: "1"
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: requirements-exe.txt
+
+      - name: 安装依赖(固定版本)
+        run: python -m pip install --disable-pip-version-check -r requirements-exe.txt
+
+      - name: 单元测试
+        run: |
+          python test_engine.py
+          python test_analyzer.py
+          python test_voicebus.py
+
+      - name: 打包
+        run: python -m PyInstaller --noconfirm packaging/cs2musicbox.spec
+
+      - name: 冒烟测试(启动 exe、AI 分析、重复启动检测)
+        run: python packaging/smoke_test.py dist/CS2MusicBox
+
+      - name: 压缩
+        shell: pwsh
+        run: Compress-Archive -Path dist/CS2MusicBox -DestinationPath CS2MusicBox-windows.zip
+
+      - name: 上传构建产物
+        uses: actions/upload-artifact@v7
+        with:
+          path: CS2MusicBox-windows.zip
+          archive: false             # 已经是 zip 了,不要再套一层
+          retention-days: 30
+
+      - name: 创建 Release(仅推送标签时)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v3
+        with:
+          files: CS2MusicBox-windows.zip
+          generate_release_notes: true

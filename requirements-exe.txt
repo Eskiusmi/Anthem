@@ -1,0 +1,37 @@
+# 打包 exe 用的固定版本(已在 Python 3.13 上测试过打包和运行,Windows 版轮子都有)。
+# 只想用 python 直接运行的话装 requirements.txt 就够了。
+# 升级依赖:改这里的版本号 → 本地或 GitHub Actions 重新打包 → 跑 packaging/smoke_test.py。
+altgraph==0.17.5
+certifi==2026.7.22
+cffi==2.1.1
+charset-normalizer==3.5.2
+cloudpickle==3.1.2
+decorator==5.3.1
+idna==3.20
+joblib==1.6.0
+lazy-loader==0.6
+librosa==1.0.0
+llvmlite==0.50.0
+msgpack==1.2.3
+narwhals==2.27.1
+numba==0.68.0
+numpy==2.5.4
+packaging==26.3
+platformdirs==4.13.0
+pooch==1.9.0
+psutil==7.2.2
+pycparser==3.11
+pygame-ce==2.5.8
+requests==2.34.2
+scikit-learn==1.9.1
+scipy==1.18.1
+soundfile==0.14.0
+sounddevice==0.5.6
+soxr==1.1.0
+threadpoolctl==3.7.0
+typing_extensions==4.16.0
+urllib3==2.8.0
+pyinstaller==6.22.3
+pyinstaller-hooks-contrib==2026.8
+# 只在打包时用:把 docs/新手教程.md 转成 新手教程.html
+markdown==3.11

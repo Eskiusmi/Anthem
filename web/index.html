@@ -1,0 +1,2402 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CS2 音乐盒</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256'%3E%3Crect x='6' y='6' width='244' height='244' rx='54' fill='%231a1e24' stroke='%2338404c' stroke-width='5'/%3E%3Ccircle cx='128' cy='132' r='80' fill='none' stroke='%23f2a541' stroke-width='15'/%3E%3Ccircle cx='128' cy='52' r='16' fill='%231a1e24' stroke='%237ea6d8' stroke-width='10'/%3E%3Ccircle cx='197.3' cy='172' r='16' fill='%231a1e24' stroke='%23e0604f' stroke-width='10'/%3E%3Ccircle cx='58.7' cy='172' r='16' fill='%231a1e24' stroke='%23ece8df' stroke-width='10'/%3E%3Cg fill='%23ece8df'%3E%3Crect x='135' y='88' width='13' height='74' rx='3'/%3E%3Cellipse cx='124' cy='162' rx='24' ry='17' transform='rotate(-22 124 162)'/%3E%3Cpath d='M141 86 c22 6 38 18 32 46 c-6 -16 -18 -22 -32 -24 z'/%3E%3C/g%3E%3C/svg%3E">
+<style>
+:root{
+  --bg:#1a1e24; --panel:#232932; --raised:#2b323c; --inset:#151a20;
+  --line:#38404c; --line-soft:#2e353f;
+  --paper:#ece8df; --dim:#9aa3ae; --faint:#6c7480;
+  --signal:#f2a541; --signal-ink:#1d1406; --signal-soft:rgba(242,165,65,.16);
+  --ct:#7ea6d8; --t:#e2b25a; --fuse:#e0604f; --ok:#6cc59a; --finale:#cfc9bc; --lobby:#8a93a0;
+  --font:"Bahnschrift","DIN Alternate","Microsoft YaHei UI","PingFang SC","Noto Sans SC",system-ui,sans-serif;
+}
+*{box-sizing:border-box}
+[hidden]{display:none !important}
+html,body{margin:0;background:var(--bg);color:var(--paper)}
+body{font:14px/1.5 var(--font);font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased}
+button,input,select{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--signal);outline-offset:2px}
+a{color:inherit}
+.dim{color:var(--dim)} .faint{color:var(--faint)} .warn{color:var(--fuse)}
+
+/* ---------- 按钮与表单 */
+.btn{display:inline-flex;align-items:center;gap:6px;background:var(--raised);border:1px solid var(--line);
+  border-radius:6px;padding:6px 12px;cursor:pointer;line-height:1.3;white-space:nowrap}
+.btn:hover{border-color:var(--faint)}
+.btn:disabled{opacity:.45;cursor:default}
+.btn.primary{background:var(--signal);border-color:var(--signal);color:var(--signal-ink);font-weight:600}
+.btn.primary:hover{filter:brightness(1.08)}
+.btn.ghost{background:transparent}
+.btn.danger{background:transparent;color:var(--fuse);border-color:rgba(224,96,79,.45)}
+.btn.on{border-color:var(--signal);color:var(--signal)}
+.btn.primary.on{color:var(--signal-ink)}
+.ico{display:inline-grid;place-items:center;width:30px;height:28px;padding:0;background:var(--raised);
+  border:1px solid var(--line);border-radius:6px;cursor:pointer}
+.ico:hover{border-color:var(--faint)}
+.ico:disabled{opacity:.35;cursor:default}
+.ico svg{width:14px;height:14px;fill:currentColor}
+input[type=number],input[type=text],input[type=email],input[type=password],select{background:var(--inset);border:1px solid var(--line);border-radius:6px;padding:5px 8px}
+input[type=number]{width:84px}
+input[type=range]{accent-color:var(--signal)}
+input[type=checkbox]{accent-color:var(--signal);width:16px;height:16px}
+.sw{position:relative;display:inline-block;width:32px;height:18px;flex:none}
+.sw input{position:absolute;opacity:0;inset:0;margin:0;cursor:pointer}
+.sw span{position:absolute;inset:0;border-radius:99px;background:var(--line);transition:background .15s}
+.sw span::after{content:"";position:absolute;left:2px;top:2px;width:14px;height:14px;border-radius:50%;background:var(--paper);transition:transform .15s}
+.sw input:checked + span{background:var(--lane, var(--dim))}
+.sw input:checked + span::after{transform:translateX(14px);background:var(--signal-ink)}
+.sw input:focus-visible + span{outline:2px solid var(--signal);outline-offset:2px}
+
+/* ---------- 顶栏 */
+.top{position:sticky;top:0;z-index:40;display:flex;align-items:center;gap:20px;height:60px;padding:0 20px;
+  background:#161a1f;border-bottom:1px solid var(--line-soft)}
+.brand{font-weight:700;font-size:17px;letter-spacing:.02em;white-space:nowrap}
+.brand b{color:var(--signal)}
+.tabs{display:flex;gap:4px;height:100%}
+.tabs a{display:flex;align-items:center;padding:0 12px;text-decoration:none;color:var(--dim);border-bottom:2px solid transparent;white-space:nowrap}
+.tabs a:hover{color:var(--paper)}
+.tabs a[aria-current=page]{color:var(--paper);border-bottom-color:var(--signal)}
+.hud{margin-left:auto;display:flex;align-items:center;gap:10px;min-width:220px;justify-content:center}
+.hud-dot{width:8px;height:8px;border-radius:50%;background:var(--faint)}
+.hud.menu .hud-dot{background:var(--ok)}
+.hud.wait .hud-dot{background:var(--signal)}
+.hud.warn .hud-dot{background:var(--fuse)}
+.hud.warn .hud-msg{color:var(--fuse)}
+.hud .sc{font-size:15px;font-weight:700;padding:2px 2px;border-bottom:2px solid transparent}
+.hud .sc.ct{color:var(--ct)} .hud .sc.t{color:var(--t)}
+.hud .sc.mine{border-bottom-color:currentColor}
+.clock{display:flex;flex-direction:column;align-items:center;background:var(--inset);border:1px solid var(--line-soft);
+  border-radius:6px;padding:2px 12px;min-width:92px;line-height:1.15}
+.clock-t{font-size:19px;font-weight:700}
+.clock-p{font-size:11px;color:var(--dim)}
+.clock.bomb .clock-t{color:var(--fuse)}
+.np{display:flex;align-items:center;gap:8px;max-width:300px;min-width:0;font-size:13px}
+.np .np-txt{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.np .bars{display:inline-flex;gap:2px;align-items:flex-end;height:12px;flex:none}
+.np .bars i{width:3px;background:var(--signal);animation:eq .9s ease-in-out infinite}
+.np .bars i:nth-child(2){animation-delay:-.3s} .np .bars i:nth-child(3){animation-delay:-.6s}
+@keyframes eq{0%,100%{height:3px}50%{height:12px}}
+.vol{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--dim);white-space:nowrap}
+.vol input{width:90px}
+
+/* ---------- 页面 */
+main{max-width:1440px;margin:0 auto;padding:24px 24px 80px}
+.page[hidden]{display:none}
+.page-head{display:flex;align-items:flex-end;gap:16px;flex-wrap:wrap;margin-bottom:18px}
+.page-head h1{font-size:22px;margin:0;font-weight:700}
+.page-head p{margin:0;color:var(--dim)}
+.panel{background:var(--panel);border:1px solid var(--line-soft);border-radius:10px;padding:16px}
+.hint{font-size:12.5px;color:var(--dim)}
+kbd{font:inherit;font-size:12px;border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:0 5px;background:var(--raised)}
+
+/* ---------- 音乐盒:回合线路图 */
+.metro-wrap{overflow-x:auto;padding:4px 4px 12px}
+.metro{position:relative;display:grid;grid-template-columns:62px repeat(6,minmax(158px,1fr));column-gap:30px;row-gap:22px;min-width:1150px}
+.axis{font-size:12px;color:var(--faint);border-bottom:1px solid var(--line-soft);padding-bottom:6px;align-self:end}
+.lane-name{align-self:start;padding-top:12px;font-weight:600;color:var(--lane)}
+.lane-lobby{--lane:var(--lobby)} .lane-round{--lane:var(--ct)} .lane-bomb{--lane:var(--fuse)} .lane-final{--lane:var(--finale)}
+.rails{position:absolute;inset:0;z-index:0;pointer-events:none;overflow:visible}
+.stn{position:relative;z-index:1;display:flex;flex-direction:column;gap:2px;min-height:118px;padding:11px 12px 10px 16px;
+  background:var(--panel);border:1px solid var(--line-soft);border-radius:6px;cursor:pointer;min-width:0}
+.stn:hover{border-color:var(--line)}
+.stn.empty{background:var(--bg);border-style:dashed}
+.stn.off{opacity:.5}
+.stn.sel{border-color:var(--paper)}
+.stn.on-air{border-color:var(--signal);box-shadow:inset 0 0 0 1px var(--signal)}
+.stn.fired{animation:fired 1.4s ease-out}
+@keyframes fired{0%{background:#3b2c14}100%{background:var(--panel)}}
+.pin{position:absolute;left:-7px;top:16px;width:12px;height:12px;border-radius:50%;background:var(--bg);border:2px solid var(--lane)}
+.stn:not(.empty):not(.off) .pin{background:var(--lane)}
+.stn-top{display:flex;align-items:center;gap:6px}
+.stn-name{font-weight:600;font-size:14px}
+.tag{font-size:11px;padding:0 6px;border-radius:99px;border:1px solid var(--line);color:var(--dim)}
+.stn-clip{font-size:12.5px;color:var(--dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.stn.empty .stn-clip{color:var(--faint)}
+.stn-time{font-size:12.5px;color:var(--paper)}
+.stn-act{display:flex;align-items:center;gap:6px;margin-top:auto;padding-top:6px}
+.stn-act .sw{margin-left:auto}
+.stn-act .set{font-size:12px;color:var(--faint)}
+.stn:hover .stn-act .set{color:var(--dim)}
+.kit-foot{display:flex;gap:24px;flex-wrap:wrap;margin-top:18px}
+.kit-foot .panel{flex:1 1 320px}
+
+/* ---------- 抽屉 */
+.drawer{position:fixed;top:60px;right:0;bottom:0;width:380px;max-width:100vw;z-index:30;background:var(--panel);
+  border-left:1px solid var(--line);transform:translateX(100%);transition:transform .2s ease;display:flex;flex-direction:column}
+.drawer.open{transform:none}
+.dr-head{display:flex;align-items:flex-start;gap:12px;padding:18px 18px 12px;border-bottom:1px solid var(--line-soft)}
+.dr-head h2{margin:0;font-size:19px}
+.dr-head p{margin:2px 0 0;color:var(--dim);font-size:13px}
+.dr-head .ico{margin-left:auto}
+.dr-lane{font-size:12px;color:var(--lane);font-weight:600}
+.dr-body{padding:16px 18px;overflow:auto;display:flex;flex-direction:column;gap:14px}
+.field{display:flex;flex-direction:column;gap:5px;font-size:13px;color:var(--dim)}
+.field > span:first-child{color:var(--dim)}
+.field select,.field input[type=text],.field input[type=email],.field input[type=password]{width:100%}
+.row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.grid2 input[type=number]{width:100%}
+.dr-actions{display:flex;gap:8px;flex-wrap:wrap;padding-top:4px}
+details summary{cursor:pointer;color:var(--dim);font-size:13px}
+
+/* ---------- 剪辑台 */
+.studio{display:grid;grid-template-columns:270px minmax(0,1fr);gap:20px;align-items:start}
+.studio > *{min-width:0}
+.lib-drop{border:1.5px dashed var(--line);border-radius:8px;padding:14px;text-align:center;color:var(--dim);cursor:pointer;font-size:13px}
+.lib-drop.over{border-color:var(--signal);color:var(--paper);background:var(--signal-soft)}
+.lib-list{list-style:none;margin:12px 0 0;padding:0;max-height:62vh;overflow:auto}
+.lib-list li{display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:6px;cursor:pointer}
+.lib-list li:hover{background:var(--raised)}
+.lib-list li.cur{background:var(--raised);box-shadow:inset 3px 0 0 var(--signal)}
+.lib-list .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13.5px}
+.lib-list .du{font-size:12px;color:var(--faint)}
+.lib-list .clipmark{font-size:11px;color:var(--signal);border:1px solid rgba(242,165,65,.4);border-radius:99px;padding:0 5px}
+.lib-list .ico{width:24px;height:22px;opacity:0;background:transparent;border-color:transparent}
+.lib-list li:hover .ico,.lib-list li:focus-within .ico{opacity:1}
+.deck{min-width:0}
+.deck-head{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin-bottom:10px}
+.deck-head h2{margin:0;font-size:19px;overflow-wrap:anywhere}
+.target{display:flex;align-items:center;gap:10px;background:var(--signal-soft);border:1px solid rgba(242,165,65,.35);
+  border-radius:8px;padding:8px 12px;margin-bottom:12px;font-size:13.5px}
+.target .btn{margin-left:auto}
+canvas.ov{display:block;width:100%;height:46px;border-radius:6px;background:var(--inset);cursor:pointer}
+canvas.wf{display:block;width:100%;height:210px;border-radius:6px;background:var(--inset);margin-top:8px;touch-action:none}
+.transport{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:12px}
+.transport .sep{width:1px;height:22px;background:var(--line);margin:0 6px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.seg button{background:var(--raised);border:0;padding:5px 10px;cursor:pointer;color:var(--dim)}
+.seg button[aria-pressed=true]{background:var(--signal);color:var(--signal-ink)}
+.points{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:14px}
+.pt{background:var(--raised);border-radius:8px;padding:10px 12px}
+.pt label{display:block;font-size:12px;color:var(--dim);margin-bottom:4px}
+.pt .big{font-size:22px;font-weight:700;line-height:1.2}
+.pt .nudge{display:flex;gap:4px;margin-top:6px;flex-wrap:wrap}
+.pt .nudge button{background:var(--panel);border:1px solid var(--line);border-radius:5px;padding:2px 7px;font-size:12px;cursor:pointer}
+.pt input.big{width:100%;background:transparent;border:1px solid transparent;padding:0 2px;font-size:22px;font-weight:700}
+.pt input.big:hover,.pt input.big:focus{border-color:var(--line);background:var(--inset)}
+.shape{display:flex;gap:18px;flex-wrap:wrap;align-items:center;margin-top:14px;font-size:13px;color:var(--dim)}
+.shape label{display:inline-flex;align-items:center;gap:6px}
+.shape input[type=number]{width:70px}
+.export{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:16px;padding-top:14px;border-top:1px solid var(--line-soft)}
+.export input[type=text]{flex:1 1 260px;min-width:0}
+.empty-deck{padding:56px 20px;text-align:center;color:var(--dim)}
+.empty-deck h2{color:var(--paper);font-size:18px;margin:0 0 6px}
+
+/* ---------- AI 推荐 */
+.ai-files{display:flex;flex-wrap:wrap;gap:6px 16px;margin:6px 0 12px}
+.ai-files label{display:inline-flex;gap:6px;align-items:center;font-size:13px}
+.legend{display:flex;flex-wrap:wrap;gap:4px 16px;font-size:12px;color:var(--dim);margin:14px 0 6px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+.tl{margin:10px 0}
+.tlh{display:flex;flex-wrap:wrap;gap:4px 14px;align-items:baseline;font-size:13px;margin-bottom:4px}
+.tlh b{overflow-wrap:anywhere}
+.tl canvas{width:100%;height:64px;display:block;border-radius:6px;background:var(--inset);cursor:crosshair}
+.reco{display:grid;grid-template-columns:130px minmax(0,1fr);gap:4px 14px;padding:10px 0;border-bottom:1px solid var(--line-soft)}
+.reco:last-child{border-bottom:0}
+.reco .rn{font-weight:600;padding-top:4px;color:var(--lane)}
+.cand{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;padding:5px 8px;border-radius:6px}
+.cand:hover{background:var(--raised)}
+.score{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;min-width:70px}
+.score i{display:block;width:40px;height:5px;border-radius:3px;background:var(--line);overflow:hidden}
+.score i b{display:block;height:100%;background:var(--signal)}
+.cand .where{font-size:13px;overflow-wrap:anywhere}
+.cand .why{flex-basis:100%;font-size:12.5px;color:var(--dim)}
+.cand .acts{display:inline-flex;gap:6px;margin-left:auto}
+
+/* ---------- 设置 */
+.settings{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:18px}
+.settings h2{font-size:16px;margin:0 0 10px}
+.settings .grid2 label{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--dim)}
+pre.log{margin:0;max-height:360px;overflow:auto;font:12px/1.55 var(--font);white-space:pre-wrap;overflow-wrap:anywhere;color:#c9c5bc}
+code{font-family:var(--font);background:var(--inset);border:1px solid var(--line);border-radius:4px;padding:1px 6px}
+
+/* ---------- 事件提示(击杀信息样式) 与 toast */
+.feed{position:fixed;top:70px;right:16px;z-index:35;width:300px;display:flex;flex-direction:column;gap:6px;pointer-events:none}
+.kf{background:rgba(22,26,31,.94);border:1px solid var(--line-soft);border-left:3px solid var(--lane);border-radius:4px;
+  padding:6px 10px;font-size:13px;animation:kf-in .25s ease-out;transition:opacity .4s}
+.kf b{font-weight:600}
+.kf .kf-clip{display:block;font-size:12px;color:var(--dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.kf.out{opacity:0}
+@keyframes kf-in{from{transform:translateX(24px);opacity:0}to{transform:none;opacity:1}}
+.toast{position:fixed;right:16px;bottom:16px;z-index:60;background:var(--raised);border:1px solid var(--line);border-radius:8px;
+  padding:8px 14px;font-size:13px;opacity:0;transform:translateY(8px);transition:opacity .2s,transform .2s;pointer-events:none}
+.toast.show{opacity:1;transform:none}
+.toast.err{border-color:var(--fuse);color:var(--fuse)}
+
+@media (max-width:1100px){
+  .top{height:auto;flex-wrap:wrap;padding:8px 14px;gap:8px 14px}
+  .tabs{height:auto;order:5;width:100%;overflow-x:auto;scrollbar-width:none}
+  .tabs::-webkit-scrollbar{display:none}
+  .tabs a{padding:6px 10px;flex:none}
+  .hud{margin-left:0;min-width:0}
+  .drawer{top:0}
+  .studio{grid-template-columns:minmax(0,1fr)}
+  .lib-list{max-height:220px}
+}
+@media (max-width:900px){
+  .metro{display:flex;flex-direction:column;gap:8px;min-width:0}
+  .axis,.rails{display:none}
+  .lane-name{padding-top:14px}
+  .stn{min-height:0}
+  .pin{display:none}
+  .points{grid-template-columns:1fr}
+  .reco{grid-template-columns:1fr}
+  .np{display:none}
+  main{padding:16px 14px 80px}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none !important;transition:none !important}}
+
+/* ---------- 社区 */
+.cm{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:20px;align-items:start}
+.cm > *{min-width:0}
+.cm-bar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
+.cm-bar input[type=text]{flex:1 1 240px;min-width:0}
+.kits{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
+.kit{display:grid;grid-template-columns:minmax(0,1fr) 78px;gap:6px 14px;background:var(--panel);border:1px solid var(--line-soft);
+  border-radius:10px;padding:14px 14px 12px 16px;cursor:pointer;text-align:left;color:inherit;font:inherit}
+.kit:hover{border-color:var(--line)}
+.kit.cur{border-color:var(--paper)}
+.kit h3{margin:0;font-size:16px;line-height:1.3;overflow-wrap:anywhere}
+.kit .by{font-size:12.5px;color:var(--dim)}
+.kit .songs{grid-column:1 / -1;font-size:12.5px;color:var(--dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.kit .foot{grid-column:1 / -1;display:flex;gap:12px;align-items:center;font-size:12.5px;color:var(--dim);flex-wrap:wrap}
+.kit .foot .liked{color:var(--fuse)}
+.chip{display:inline-block;font-size:11.5px;padding:0 7px;border-radius:99px;border:1px solid var(--line);color:var(--dim)}
+.mini{grid-row:1 / span 2;grid-column:2;align-self:start}
+.acct h2,.share h2{font-size:16px;margin:0 0 10px}
+.acct form{display:flex;flex-direction:column;gap:10px}
+.acct input{width:100%}
+.seg.wide{display:flex}
+.seg.wide button{flex:1}
+.empty-cm{padding:40px 16px;text-align:center;color:var(--dim)}
+.spin{display:inline-block;width:12px;height:12px;margin-right:8px;vertical-align:-1px;border:2px solid var(--line);border-top-color:var(--signal);border-radius:50%;animation:spin .9s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.sheet{position:fixed;top:60px;right:0;bottom:0;width:560px;max-width:100vw;z-index:31;background:var(--panel);
+  border-left:1px solid var(--line);transform:translateX(100%);transition:transform .2s ease;display:flex;flex-direction:column}
+.sheet.open{transform:none}
+.sheet .sh-head{display:flex;gap:12px;align-items:flex-start;padding:18px 20px 12px;border-bottom:1px solid var(--line-soft)}
+.sheet .sh-head h2{margin:0;font-size:19px;overflow-wrap:anywhere}
+.sheet .sh-head .ico{margin-left:auto;flex:none}
+.sheet .sh-body{padding:16px 20px 24px;overflow:auto;display:flex;flex-direction:column;gap:16px}
+.sheet h3{font-size:14px;margin:0 0 8px}
+.maprow{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.2fr);gap:6px 12px;padding:10px 0;border-bottom:1px solid var(--line-soft);align-items:center}
+.maprow .st{font-size:12.5px}
+.maprow .st.okk{color:var(--ok)} .maprow .st.no{color:var(--fuse)}
+.maprow select{width:100%}
+.maprow .off{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--dim)}
+.maprow .off input{width:76px}
+.stlist{display:flex;flex-direction:column}
+.stlist .r{display:grid;grid-template-columns:110px minmax(0,1fr) auto;gap:10px;align-items:center;padding:6px 0;border-bottom:1px dashed var(--line-soft);font-size:13px}
+.stlist .r b{color:var(--lane);font-weight:600}
+.stlist .r .w{color:var(--dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.warnbox{border:1px solid rgba(224,96,79,.45);border-radius:8px;padding:8px 12px;font-size:13px;color:#e9a196}
+.undo{display:flex;align-items:center;gap:10px;background:var(--raised);border-radius:8px;padding:8px 12px;margin-bottom:14px;font-size:13.5px}
+.undo .btn{margin-left:auto}
+textarea{font:inherit;color:inherit;background:var(--inset);border:1px solid var(--line);border-radius:6px;padding:6px 8px;width:100%;resize:vertical}
+@media (max-width:1100px){.cm{grid-template-columns:minmax(0,1fr)} .sheet{top:0}}
+
+/* ---------- 新手教程:一条线路,每一步是一个站 */
+.guide{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:24px;align-items:start}
+.guide > *{min-width:0}
+.gline{list-style:none;margin:0;padding:0 0 0 26px;position:relative}
+.gline::before{content:"";position:absolute;left:8px;top:14px;bottom:14px;width:3px;border-radius:2px;background:var(--line)}
+.gst{position:relative;margin:0 0 14px}
+.gpin{position:absolute;left:-25px;top:16px;width:17px;height:17px;border-radius:50%;background:var(--bg);border:3px solid var(--line);z-index:1}
+.gst.done .gpin{background:var(--ok);border-color:var(--ok)}
+.gst.cur .gpin{border-color:var(--signal);background:var(--signal)}
+.gst.opt .gpin{border-style:dashed}
+.gcard{background:var(--panel);border:1px solid var(--line-soft);border-radius:10px;padding:14px 16px}
+.gst.cur .gcard{border-color:rgba(242,165,65,.55)}
+.ghead{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.ghead h3{margin:0;font-size:16px}
+.gnum{font-size:12px;color:var(--faint);font-weight:700;letter-spacing:.04em}
+.gchip{margin-left:auto;font-size:12px;padding:1px 9px;border-radius:99px;border:1px solid var(--line);color:var(--dim);white-space:nowrap}
+.gst.done .gchip{color:var(--ok);border-color:rgba(108,197,154,.5)}
+.gst.cur .gchip{color:var(--signal);border-color:rgba(242,165,65,.55)}
+.gcard p{margin:8px 0 0;font-size:13.5px;color:var(--dim)}
+.gstat{margin-top:8px;font-size:13px}
+.gstat.ok{color:var(--ok)} .gstat.warn{color:var(--fuse)} .gstat.run{color:var(--signal)}
+.gacts{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;align-items:center}
+.gcmd{display:flex;align-items:center;gap:8px;margin-top:10px;flex-wrap:wrap}
+.gcmd code{font-size:14px;padding:4px 10px}
+.gside{position:sticky;top:80px;display:flex;flex-direction:column;gap:12px}
+.gside h2{margin:0;font-size:16px}
+.gprog{height:8px;border-radius:4px;background:var(--inset);border:1px solid var(--line-soft);overflow:hidden}
+.gprog i{display:block;height:100%;width:0;background:var(--ok);transition:width .3s}
+.gside .big{font-size:26px;font-weight:700;line-height:1}
+.hud .demo-tag{font-size:11px;font-weight:700;color:var(--signal-ink);background:var(--signal);border-radius:4px;padding:0 6px}
+@media (max-width:1100px){.guide{grid-template-columns:minmax(0,1fr)} .gside{position:static;order:-1}}
+
+/* ---------- 实验性功能标记 */
+.exp{display:inline-block;margin-left:5px;font-size:10.5px;line-height:15px;padding:0 5px;border-radius:4px;
+  border:1px solid rgba(242,165,65,.55);color:var(--signal);font-weight:600;vertical-align:1px}
+.expbox{display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 14px;align-items:start;background:var(--signal-soft);
+  border:1px solid rgba(242,165,65,.4);border-radius:10px;padding:14px 16px;margin-bottom:16px}
+.expbox .tagx{grid-row:1 / span 3;font-size:12px;font-weight:700;color:var(--signal-ink);background:var(--signal);border-radius:5px;padding:2px 8px;margin-top:1px}
+.expbox b{font-size:14px}
+.expbox p{margin:0;font-size:13px;color:var(--paper)}
+.expbox .acts{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
+.expbox.need{background:rgba(224,96,79,.1);border-color:rgba(224,96,79,.5)}
+.expbox.need .tagx{background:var(--fuse);color:#fff}
+
+/* ---------- 队友语音:一条信号线路 麦克风 → 混音 ← 音乐 → 队友 */
+.vbar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:16px}
+.vbar .big-sw{display:flex;align-items:center;gap:10px;font-size:15px;font-weight:600}
+.vbar .sw{--lane:var(--signal)}
+.vstat{font-size:13px;color:var(--dim)}
+.vstat.on{color:var(--ok)} .vstat.err{color:var(--fuse)}
+.vbar .test{margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.chain{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:34px;position:relative}
+.node{position:relative;background:var(--panel);border:1px solid var(--line-soft);border-radius:10px;padding:14px 16px 16px;
+  display:flex;flex-direction:column;gap:10px;min-width:0}
+.node::before{content:"";position:absolute;left:-7px;top:22px;width:12px;height:12px;border-radius:50%;background:var(--bg);border:2px solid var(--nc)}
+.node:not(:last-child)::after{content:"";position:absolute;right:-35px;top:27px;width:34px;height:2px;background:var(--line)}
+.chain.live .node:not(:last-child)::after{background:var(--nc)}
+.chain.live .node::before{background:var(--nc)}
+.node.mic{--nc:var(--ct)} .node.mus{--nc:var(--signal)} .node.out{--nc:var(--ok)}
+.node h3{margin:0;font-size:15px;display:flex;align-items:center;gap:8px}
+.node h3 small{font-weight:400;color:var(--dim);font-size:12px}
+.node .field select{width:100%}
+.meter{position:relative;height:12px;border-radius:6px;background:var(--inset);border:1px solid var(--line-soft);overflow:visible}
+.meter > i{position:absolute;left:0;top:0;bottom:0;width:0;border-radius:5px;background:var(--nc);opacity:.9}
+.meter .thr{position:absolute;top:-4px;bottom:-4px;width:2px;margin-left:-1px;background:var(--paper);border-radius:1px}
+.scale{display:flex;justify-content:space-between;font-size:10.5px;color:var(--faint);margin-top:-4px}
+.talk{font-size:12px;padding:0 8px;border-radius:99px;border:1px solid var(--line);color:var(--faint);transition:all .15s}
+.talk.on{border-color:var(--ct);color:var(--ct);background:rgba(126,166,216,.12)}
+.sending{font-size:13px;color:var(--dim);min-height:20px}
+.sending b{color:var(--signal)}
+.knob{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 10px;align-items:center;font-size:12.5px;color:var(--dim)}
+.knob input[type=range]{grid-column:1 / -1;width:100%}
+.knob b{color:var(--paper);font-weight:600}
+.vgrid{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:18px;margin-top:18px}
+.vgrid h2{font-size:16px;margin:0 0 10px}
+.steps{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:12px;counter-reset:st}
+.steps li{position:relative;padding-left:34px;font-size:13.5px}
+.steps li::before{counter-increment:st;content:counter(st);position:absolute;left:0;top:0;width:22px;height:22px;border-radius:50%;
+  display:grid;place-items:center;font-size:12px;font-weight:700;background:var(--raised);border:1px solid var(--line)}
+.steps li.done::before{content:"✓";background:var(--ok);border-color:var(--ok);color:#10261b}
+.steps li b{display:block;margin-bottom:2px}
+.steps .hint{margin:2px 0 0}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.vchip{display:inline-flex;align-items:center;gap:6px;background:var(--bg);border:1px solid var(--line);border-radius:99px;padding:4px 11px 4px 9px;
+  font-size:13px;cursor:pointer;color:var(--dim)}
+.vchip i{width:9px;height:9px;border-radius:50%;border:2px solid var(--lane);background:transparent}
+.vchip[aria-pressed=true]{color:var(--paper);border-color:var(--lane)}
+.vchip[aria-pressed=true] i{background:var(--lane)}
+.vchip.nofile{opacity:.55}
+.presets{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0 0}
+.vnote{margin-top:14px;font-size:12.5px;color:var(--dim);border-left:3px solid var(--fuse);padding:2px 0 2px 10px}
+.vpill{display:none;align-items:center;gap:6px;font-size:12.5px;color:var(--dim);text-decoration:none;border:1px solid var(--line);border-radius:99px;padding:2px 10px;white-space:nowrap}
+.vpill.show{display:inline-flex}
+.vpill i{width:7px;height:7px;border-radius:50%;background:var(--faint)}
+.vpill.on i{background:var(--ok)} .vpill.air{color:var(--paper);border-color:var(--signal)} .vpill.air i{background:var(--signal)}
+.vpill.err{color:var(--fuse);border-color:rgba(224,96,79,.5)} .vpill.err i{background:var(--fuse)}
+.chain.off .meter > i{opacity:.25}
+@media (max-width:1100px){
+  .chain{grid-template-columns:minmax(0,1fr);gap:22px}
+  .node:not(:last-child)::after{right:auto;left:-2px;top:auto;bottom:-23px;width:2px;height:22px}
+  .vgrid{grid-template-columns:minmax(0,1fr)}
+  .vbar .test{margin-left:0}
+}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="brand"><b>CS2</b> 音乐盒</div>
+  <nav class="tabs" aria-label="页面">
+    <a href="#kit" data-page="kit">音乐盒</a>
+    <a href="#studio" data-page="studio">剪辑台</a>
+    <a href="#ai" data-page="ai">AI 推荐</a>
+    <a href="#community" data-page="community">社区</a>
+    <a href="#voice" data-page="voice">队友语音<span class="exp" title="实验性功能">实验</span></a>
+    <a href="#settings" data-page="settings">设置</a>
+  </nav>
+  <div class="hud" id="hud" title="游戏状态"><span class="hud-dot"></span><span class="dim">连接中…</span></div>
+  <div class="np" id="np"><span class="np-txt dim">没有在播放</span></div>
+  <a class="vpill" id="vpill" href="#voice" title="队友语音"><i></i><span>队友语音</span></a>
+  <label class="vol">音量 <input type="range" id="master" min="0" max="1" step="0.01"></label>
+  <a class="btn ghost" id="guideLink" href="#guide" title="新手教程">教程</a>
+  <button class="btn ghost" id="stopAll" title="停止所有声音(Esc)">停止</button>
+</header>
+<div class="feed" id="feed" aria-live="polite"></div>
+
+<main>
+  <!-- ================= 音乐盒 ================= -->
+  <section class="page" id="page-kit">
+    <div class="page-head">
+      <h1>这一回合会放什么</h1>
+      <p>按游戏里发生的先后排列。点任意站点设置它的音乐,改动会自动保存。</p>
+    </div>
+    <div class="metro-wrap"><div class="metro" id="metro"></div></div>
+    <div class="kit-foot">
+      <div class="panel">
+        <b>还没有音乐?</b>
+        <p class="hint" style="margin:6px 0 10px">去剪辑台导入歌曲、选好片段,一键放到任意站点;或者让 AI 推荐先给你配一套。</p>
+        <a class="btn" href="#studio">打开剪辑台</a> <a class="btn ghost" href="#ai">看 AI 推荐</a>
+      </div>
+      <div class="panel">
+        <b>不开游戏,先听一局</b>
+        <p class="hint" style="margin:6px 0 10px">模拟一整局:主菜单 → 热身 → 回合开始 → 下包 → 拆包拿 MVP → 阵亡 → 比赛胜利,大约 1 分钟。</p>
+        <button class="btn" data-demo>模拟一局</button>
+      </div>
+      <div class="panel">
+        <b>多个事件同时发生时</b>
+        <p class="hint" style="margin:6px 0 0">只播优先级最高的那个,低优先级的不会打断正在播放的高优先级音乐。主菜单、热身、回合开始和比赛结束总会切换。优先级在站点详情的“高级”里调。</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 剪辑台 ================= -->
+  <section class="page" id="page-studio" hidden>
+    <div class="page-head">
+      <h1>剪辑台</h1>
+      <p>拖动选出片段,试听满意后保存到曲库,或直接用在某个站点。</p>
+    </div>
+    <div class="studio">
+      <aside class="panel">
+        <div class="lib-drop" id="drop" tabindex="0" role="button">把音乐拖到这里,或点击导入<br><span class="faint">mp3 / ogg / wav / flac</span></div>
+        <input type="file" id="file" accept=".mp3,.ogg,.wav,.flac,audio/*" multiple hidden>
+        <ul class="lib-list" id="libList"></ul>
+      </aside>
+      <div class="panel deck" id="deck">
+        <div class="empty-deck" id="deckEmpty">
+          <h2>从左边选一首歌开始剪辑</h2>
+          <p>选好后可以拖动选区、循环试听、对齐节拍,再导出成一个新的音乐文件。</p>
+        </div>
+        <div id="deckBody" hidden>
+          <div class="target" id="target" hidden></div>
+          <div class="deck-head">
+            <h2 id="stTitle"></h2>
+            <span class="dim" id="stMeta"></span>
+          </div>
+          <canvas class="ov" id="ov" aria-label="整首歌概览,点击跳转"></canvas>
+          <canvas class="wf" id="wf" aria-label="波形:拖动选择片段"></canvas>
+          <div class="transport">
+            <button class="btn primary" id="tPlay" title="播放/停止选区(空格)">播放选区</button>
+            <button class="btn" id="tLoop" aria-pressed="true" title="循环播放选区(L)">循环</button>
+            <button class="btn ghost" id="tFrom" title="从光标位置播放到结尾">从光标播放</button>
+            <span class="sep"></span>
+            <label class="dim" style="display:inline-flex;align-items:center;gap:6px">缩放 <input type="range" id="zoom" min="0" max="1" step="0.001" value="0" style="width:130px"></label>
+            <button class="btn ghost" id="zSel" title="放大到选区">看选区</button>
+            <span class="sep"></span>
+            <span class="dim">吸附</span>
+            <div class="seg" id="snap" role="group" aria-label="吸附">
+              <button data-snap="off" aria-pressed="false">关</button><button data-snap="beat" aria-pressed="true">拍</button><button data-snap="bar" aria-pressed="false">小节</button>
+            </div>
+          </div>
+          <div class="points">
+            <div class="pt">
+              <label for="inA">入点 <kbd>I</kbd></label>
+              <input class="big" id="inA" type="text" inputmode="decimal" spellcheck="false">
+              <div class="nudge" data-edge="a">
+                <button data-d="-beat">−1 拍</button><button data-d="-0.1">−0.1</button><button data-d="0.1">+0.1</button><button data-d="beat">+1 拍</button>
+              </div>
+            </div>
+            <div class="pt">
+              <label for="inB">出点 <kbd>O</kbd></label>
+              <input class="big" id="inB" type="text" inputmode="decimal" spellcheck="false">
+              <div class="nudge" data-edge="b">
+                <button data-d="-beat">−1 拍</button><button data-d="-0.1">−0.1</button><button data-d="0.1">+0.1</button><button data-d="beat">+1 拍</button>
+              </div>
+            </div>
+            <div class="pt">
+              <label>长度</label>
+              <div class="big" id="selLen">0.0 秒</div>
+              <div class="hint" id="selInfo" style="margin-top:8px"></div>
+            </div>
+          </div>
+          <div class="shape">
+            <label>淡入 <input type="number" id="fIn" min="0" max="10" step="0.05"> 秒</label>
+            <label>淡出 <input type="number" id="fOut" min="0" max="10" step="0.05"> 秒</label>
+            <label>音量 <input type="range" id="gain" min="-12" max="6" step="0.5"> <span id="gainV"></span></label>
+            <span class="hint">快捷键:<kbd>空格</kbd> 播放/停止,<kbd>I</kbd> <kbd>O</kbd> 把光标设为入点/出点,<kbd>L</kbd> 循环,滚轮缩放,<kbd>Shift</kbd>+滚轮平移</span>
+          </div>
+          <div class="export">
+            <input type="text" id="clipName" aria-label="片段文件名">
+            <button class="btn" id="exSave">保存到曲库</button>
+            <button class="btn ghost" id="exDl">下载 WAV</button>
+            <select id="exEv" aria-label="用于哪个站点"></select>
+            <button class="btn primary" id="exUse">保存并使用</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= AI 推荐 ================= -->
+  <section class="page" id="page-ai" hidden>
+    <div class="page-head">
+      <h1>AI 推荐</h1>
+      <p>分析每首歌的段落结构,按每个站点需要的感觉推荐从哪里切、切多长。先试听,满意再采用。</p>
+    </div>
+    <div class="panel">
+      <div class="ai-files" id="aiFiles"></div>
+      <div class="row">
+        <button class="btn primary" id="aiRun">开始分析</button>
+        <button class="btn" id="aiApplyAll" hidden>全部采用第一推荐</button>
+        <span class="hint" id="aiProg"></span>
+      </div>
+      <div id="aiOut"></div>
+    </div>
+  </section>
+
+
+  <!-- ================= 社区 ================= -->
+  <section class="page" id="page-community" hidden>
+    <div class="page-head">
+      <h1>社区</h1>
+      <p>分享你的音乐盒,或者导入别人的。分享的是“配方”:用哪首歌、每个站点从哪里切、切多长,不会上传任何音频。</p>
+    </div>
+    <div id="cmSetup" class="panel" hidden>
+      <b>先连接一个社区服务器</b>
+      <p class="hint" style="margin:6px 0 10px">填入社区服务器的网址(搭建方法见 community 文件夹里的说明)。</p>
+      <div class="row"><input type="text" id="cmUrl1" placeholder="https://mb.example.com" style="flex:1 1 280px"><button class="btn primary" id="cmConnect1">连接</button></div>
+    </div>
+    <div class="cm" id="cmMain" hidden>
+      <div>
+        <div class="undo" id="cmUndo" hidden></div>
+        <div class="cm-bar">
+          <input type="text" id="cmQ" placeholder="搜索标题、歌名、标签或作者" aria-label="搜索">
+          <div class="seg" id="cmSort" role="group" aria-label="排序">
+            <button data-sort="new" aria-pressed="true">最新</button><button data-sort="popular" aria-pressed="false">最热</button><button data-sort="mine" aria-pressed="false">我分享的</button>
+          </div>
+        </div>
+        <div class="kits" id="cmKits"></div>
+        <div class="row" style="justify-content:center;margin-top:14px"><button class="btn ghost" id="cmMore" hidden>加载更多</button></div>
+      </div>
+      <aside>
+        <div class="panel acct" id="cmAcct"></div>
+        <div class="panel share" style="margin-top:16px">
+          <h2>分享我的音乐盒</h2>
+          <p class="hint" style="margin:0 0 10px">把你现在音乐盒里配好的站点分享出去。别人导入时会用他们自己电脑上的同一首歌,程序会自动对齐时间。</p>
+          <button class="btn primary" id="cmShareBtn">分享当前音乐盒</button>
+        </div>
+      </aside>
+    </div>
+  </section>
+  <!-- ================= 新手教程 ================= -->
+  <section class="page" id="page-guide" hidden>
+    <div class="page-head">
+      <h1>新手教程</h1>
+      <p>沿着这条线走一遍,大约 5 分钟。每一步做完会自动打勾,随时可以从右上角的「教程」回到这里。</p>
+    </div>
+    <div class="guide">
+      <ol class="gline" id="gSteps"></ol>
+      <aside class="panel gside">
+        <h2>进度</h2>
+        <div><span class="big" id="gCount">0 / 5</span> <span class="dim">个必做步骤</span></div>
+        <div class="gprog"><i id="gBar"></i></div>
+        <p class="hint" style="margin:0" id="gNext"></p>
+        <button class="btn primary" id="gDone">完成教程,去音乐盒</button>
+        <div class="row"><input type="checkbox" id="gNoAuto"><label for="gNoAuto" class="hint">启动时不再自动打开教程</label></div>
+      </aside>
+    </div>
+  </section>
+
+  <!-- ================= 队友语音 ================= -->
+  <section class="page" id="page-voice" hidden>
+    <div class="page-head">
+      <h1>队友语音</h1>
+      <p>把你的麦克风和正在播放的音乐混在一起送进游戏语音,队友同时听到你说话和你的音乐。你自己耳机里听到的不变。</p>
+    </div>
+    <div class="expbox" id="vExp">
+      <span class="tagx">实验性功能</span>
+      <b>这个功能还在测试阶段</b>
+      <p>还没有在真实的 Windows + CS2 环境里充分验证,可能会遇到声音断续、没声音或设备认不出来等问题。遇到问题直接关掉它就行,不影响音乐盒的其他功能。</p>
+      <p><b style="font-size:13px">需要你自己下载一个免费的虚拟声卡 VB-CABLE。</b>本程序不附带、也不会替你安装它(它是 VB-Audio 公司的捐赠软件,装驱动需要管理员权限)。</p>
+    </div>
+    <div class="expbox need" id="vNeed" hidden>
+      <span class="tagx">还差一步</span>
+      <b>没有检测到 VB-CABLE</b>
+      <p>到官网下载 → 解压 → 右键 <code>VBCABLE_Setup_x64.exe</code> 选「以管理员身份运行」→ 点 Install → <b style="font-size:13px">重启电脑</b>。装好后回到这里点「重新检测」。</p>
+      <div class="acts"><a class="btn primary" href="https://vb-audio.com/Cable/" target="_blank" rel="noopener">打开 VB-CABLE 下载页</a>
+        <button class="btn" id="vRecheck">重新检测</button></div>
+    </div>
+    <div class="panel" id="vUnavail" hidden></div>
+    <div id="vMain">
+      <div class="vbar">
+        <label class="big-sw"><span class="sw"><input type="checkbox" id="vOn"><span></span></span>把音乐播给队友<span class="exp">实验</span></label>
+        <span class="vstat" id="vStat" role="status"></span>
+        <div class="test">
+          <select id="vTestEv" aria-label="测试用哪个站点的音乐"></select>
+          <button class="btn" id="vTest" title="只送给队友 8 秒,你自己听不到">发送测试</button>
+        </div>
+      </div>
+      <div class="warnbox" id="vWarn" hidden style="margin-bottom:14px"></div>
+      <div class="chain off" id="vChain">
+        <div class="node mic">
+          <h3>你的麦克风 <span class="talk" id="vTalk">说话中</span></h3>
+          <label class="field"><span>设备</span><select id="vMic"></select></label>
+          <div><div class="meter" id="mMic"><i></i><span class="thr" id="mThr"></span></div></div>
+          <div class="scale" aria-hidden="true"><span>−60</span><span>−40</span><span>−20</span><span>0 dB</span></div>
+          <label class="knob">说话检测阈值 <b id="vThrV"></b><input type="range" id="vThr" min="-70" max="-15" step="1"></label>
+          <label class="knob">麦克风音量 <b id="vGainV"></b><input type="range" id="vGain" min="-12" max="24" step="1"></label>
+          <div class="row"><label class="sw" style="--lane:var(--ct)"><input type="checkbox" id="vGate"><span></span></label><label for="vGate">噪声门:不说话时关掉麦克风</label></div>
+        </div>
+        <div class="node mus">
+          <h3>你的音乐</h3>
+          <div class="sending" id="vSending">没有在送</div>
+          <div><div class="meter" id="mMus"><i></i></div></div>
+          <div class="scale" aria-hidden="true"><span>−60</span><span>−40</span><span>−20</span><span>0 dB</span></div>
+          <label class="knob">队友听到的音乐音量 <b id="vLvlV"></b><input type="range" id="vLvl" min="0" max="1" step="0.01"></label>
+          <div class="row"><label class="sw"><input type="checkbox" id="vDuck"><span></span></label><label for="vDuck">你说话时自动压低音乐</label></div>
+          <label class="knob" id="vDuckBox">压低多少 <b id="vDuckV"></b><input type="range" id="vDuckDb" min="-30" max="-3" step="1"></label>
+        </div>
+        <div class="node out">
+          <h3>发给队友 <small id="vLat"></small></h3>
+          <label class="field"><span>送到(虚拟声卡)</span><select id="vOut"></select></label>
+          <div><div class="meter" id="mOut"><i></i></div></div>
+          <div class="scale" aria-hidden="true"><span>−60</span><span>−40</span><span>−20</span><span>0 dB</span></div>
+          <p class="hint" style="margin:0">游戏里把语音输入设备选成 <b>CABLE Output</b>,队友听到的就是这一路。</p>
+        </div>
+      </div>
+      <div class="vgrid">
+        <div class="panel">
+          <h2>第一次使用</h2>
+          <ol class="steps" id="vSteps"></ol>
+        </div>
+        <div class="panel">
+          <h2>哪些站点的音乐放给队友</h2>
+          <div class="chips" id="vChips"></div>
+          <div class="presets">
+            <button class="btn ghost" data-preset="all">全部</button>
+            <button class="btn ghost" data-preset="party">只放庆祝时刻</button>
+            <button class="btn ghost" data-preset="none">全部不放</button>
+          </div>
+          <p class="vnote">队友可以把你静音;一直往语音里放音乐,可能被举报「语音骚扰」导致暂时不能用语音。建议只在回合结束、MVP 这类时刻放,你说话时音乐会自动让路。</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 设置 ================= -->
+  <section class="page" id="page-settings" hidden>
+    <div class="page-head"><h1>设置</h1></div>
+    <div class="settings">
+      <div class="panel">
+        <h2>连接 CS2</h2>
+        <p class="hint" style="margin-top:0">程序会把 GSI 配置写进 CS2 的 cfg 文件夹;写入后需要重启一次 CS2。找不到时在这里填路径。</p>
+        <input type="text" id="cfgdir" style="width:100%" placeholder="例如 D:\SteamLibrary\steamapps\common\Counter-Strike Global Offensive\game\csgo\cfg">
+        <div class="row" style="margin-top:10px"><button class="btn" id="installBtn">写入 GSI 配置</button></div>
+        <p class="hint" id="cfgstat"></p>
+        <p class="hint" id="procstat"></p>
+        <h2 style="margin-top:18px">关掉游戏自带音乐</h2>
+        <p class="hint" style="margin:0">进游戏后在控制台输入 <code>exec musicbox_mute</code>。只把各类“音乐”音量设为 0,枪声和脚步不受影响;要恢复就到 设置 › 音频 › 音乐 把滑块调回来。</p>
+      </div>
+      <div class="panel">
+        <h2>计时</h2>
+        <p class="hint" style="margin-top:0">“剩余 10 秒”是按回合开始和下包时间估算的。提示早了或晚了就在这里调。</p>
+        <div class="grid2" id="timing"></div>
+      </div>
+      <div class="panel">
+        <h2>社区服务器</h2>
+        <p class="hint" style="margin-top:0">社区用来分享和导入音乐盒。填入服务器网址,程序会先检查它是不是音乐盒社区。</p>
+        <div class="row"><input type="text" id="cmUrl2" placeholder="https://mb.example.com" style="flex:1 1 240px"><button class="btn" id="cmConnect2">连接</button></div>
+        <p class="hint" id="cmUrlStat"></p>
+      </div>
+      <div class="panel" style="grid-column:1/-1">
+        <h2>日志</h2>
+        <pre class="log" id="log"></pre>
+      </div>
+    </div>
+  </section>
+</main>
+
+<aside class="drawer" id="drawer" aria-hidden="true">
+  <div class="dr-head" id="drHead">
+    <div><div class="dr-lane" id="drLane"></div><h2 id="drName"></h2><p id="drDesc"></p></div>
+    <button class="ico" id="drClose" title="关闭(Esc)" aria-label="关闭"><svg viewBox="0 0 16 16"><path d="M3.5 2.4 8 6.9l4.5-4.5 1.1 1.1L9.1 8l4.5 4.5-1.1 1.1L8 9.1l-4.5 4.5-1.1-1.1L6.9 8 2.4 3.5z"/></svg></button>
+  </div>
+  <div class="dr-body">
+    <div class="row"><label class="sw"><input type="checkbox" id="drOn"><span></span></label><label for="drOn">启用这个站点</label></div>
+    <label class="field"><span>曲目</span><select id="drFile"></select></label>
+    <div class="grid2">
+      <label class="field"><span>起始(秒)</span><input type="number" id="drStart" min="0" step="0.1"></label>
+      <label class="field"><span>时长(秒,0 = 到结尾)</span><input type="number" id="drDur" min="0" step="0.5"></label>
+    </div>
+    <label class="field"><span>音量 <b id="drVolV"></b></span><input type="range" id="drVol" min="0" max="1" step="0.01"></label>
+    <div class="row"><input type="checkbox" id="drLoop"><label for="drLoop">循环播放(适合主菜单、热身)</label></div>
+    <div class="grid2">
+      <label class="field"><span>淡入(秒)</span><input type="number" id="drFin" min="0" step="0.1"></label>
+      <label class="field"><span>淡出(秒)</span><input type="number" id="drFout" min="0" step="0.1"></label>
+    </div>
+    <details><summary>高级</summary>
+      <label class="field" style="margin-top:8px"><span>优先级</span><input type="number" id="drPri" min="0" step="1"></label>
+      <p class="hint">数字越大越优先。同一时刻触发多个事件时只播优先级最高的。</p>
+    </details>
+    <div class="dr-actions">
+      <button class="btn primary" id="drPlay">试听</button>
+      <button class="btn" id="drCut">在剪辑台打开</button>
+      <button class="btn danger" id="drClear">清空</button>
+    </div>
+  </div>
+</aside>
+
+
+<aside class="sheet" id="sheet" aria-hidden="true">
+  <div class="sh-head"><div><div class="hint" id="shKicker"></div><h2 id="shTitle"></h2><div class="hint" id="shSub"></div></div>
+    <button class="ico" id="shClose" title="关闭(Esc)" aria-label="关闭"><svg viewBox="0 0 16 16"><path d="M3.5 2.4 8 6.9l4.5-4.5 1.1 1.1L9.1 8l4.5 4.5-1.1 1.1L8 9.1l-4.5 4.5-1.1-1.1L6.9 8 2.4 3.5z"/></svg></button>
+  </div>
+  <div class="sh-body" id="shBody"></div>
+</aside>
+<div class="toast" id="toast" role="status"></div>
+<audio id="pv" preload="auto"></audio>
+
+<script>
+"use strict";
+// =============================================================== 工具
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c]));
+const api = (path, body) => fetch(path, {
+  method: body === undefined ? "GET" : "POST",
+  headers: {"X-MusicBox": "1", "Content-Type": "application/json"},
+  body: body === undefined ? undefined : JSON.stringify(body)
+}).then(r => r.json());
+const musicURL = f => "/music/" + encodeURIComponent(f);
+const fmt = t => {
+  if (t == null || !isFinite(t)) return "—";
+  t = Math.max(0, Math.round(t * 10) / 10);
+  const m = Math.floor(t / 60), s = t - m * 60;
+  return `${m}:${s.toFixed(1).padStart(4, "0")}`;
+};
+const fmtClock = t => { t = Math.max(0, Math.ceil(t)); return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, "0")}`; };
+const parseTime = s => {               // 支持 "1:05.2" 或 "65.2"
+  s = String(s).trim().replace("：", ":");
+  if (!s) return NaN;
+  if (s.includes(":")) { const [m, x] = s.split(":"); return (+m) * 60 + (+x); }
+  return +s;
+};
+const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
+const ICON = {
+  play: '<svg viewBox="0 0 16 16"><path d="M4 2.5v11l9-5.5z"/></svg>',
+  stop: '<svg viewBox="0 0 16 16"><path d="M3.5 3.5h9v9h-9z"/></svg>',
+  cut: '<svg viewBox="0 0 16 16"><path d="M5 2.2a2.3 2.3 0 1 0 1.5 4l1.3 1.3-1.3 1.3a2.3 2.3 0 1 0 1 1l1.3-1.3 3.7 3.7h1.6v-.6L5.7 4.3A2.3 2.3 0 0 0 5 2.2Zm0 1.2a1.1 1.1 0 1 1 0 2.2 1.1 1.1 0 0 1 0-2.2Zm0 7a1.1 1.1 0 1 1 0 2.2 1.1 1.1 0 0 1 0-2.2Zm5-4.2 3.6-3.6V2h-1.6L9.2 4.8z"/></svg>',
+  trash: '<svg viewBox="0 0 16 16"><path d="M6 1.5h4l.5 1H14v1.3H2V2.5h3.5zM3.3 5h9.4l-.7 9.5H4zM6 6.5v6.5h1.2V6.5zm2.8 0v6.5H10V6.5z"/></svg>',
+};
+let toastT = 0;
+function toast(msg, err){
+  const t = $("#toast"); t.textContent = msg; t.className = "toast show" + (err ? " err" : "");
+  clearTimeout(toastT); toastT = setTimeout(() => t.className = "toast", Math.max(2400, String(msg).length * 80));
+}
+
+// =============================================================== 数据
+let S = null;            // 服务器状态
+let C = null;            // 配置(界面上的修改直接改这里并自动保存)
+let META = {};           // 事件 key → {name, desc, loop, ...}
+let LIB = [];            // 曲库
+let libSig = "";
+const PH = {freezetime: "冻结时间", live: "进行中", over: "回合结束", warmup: "热身", gameover: "比赛结束", intermission: "中场"};
+
+// 回合线路图:轨道 → 行 → [事件, 列]
+const LANES = [
+  {id: "lobby", name: "大厅", rows: [[["menu", 1], ["warmup", 2]]]},
+  {id: "round", name: "回合", rows: [[["freezetime", 1], ["round_live", 2], ["round_10s", 4], ["round_won", 5], ["mvp", 6]],
+                                     [["death", 2], ["round_lost", 5]]]},
+  {id: "bomb", name: "炸弹", rows: [[["bomb_planted", 3], ["bomb_10s", 4]]]},
+  {id: "final", name: "终局", rows: [[["match_won", 5], ["match_lost", 6]]]},
+];
+const LANE_OF = {};
+LANES.forEach(l => l.rows.flat().forEach(([k]) => LANE_OF[k] = l));
+const COLS = ["冻结时间", "开局", "回合中", "最后 10 秒", "回合结束", "MVP"];
+
+let saveT = 0;
+function save(msg){
+  clearTimeout(saveT);
+  saveT = setTimeout(async () => {
+    try {
+      const r = await api("/api/config", C);
+      toast(r.ok ? (msg || "已保存") : "保存失败:" + r.error, !r.ok);
+    } catch { toast("保存失败:程序没有在运行", true); }
+  }, 350);
+}
+const libHas = f => LIB.some(x => x.file === f);
+
+// =============================================================== 全局试听总线:同一时间只有一个声音
+const Bus = {
+  owner: null,
+  claim(o){
+    if (this.owner && this.owner !== o) this.owner.stop();
+    this.owner = o;
+    if (S && S.playing) api("/api/stop", {});          // 游戏音频引擎正在放的也停掉
+  },
+  release(o){ if (this.owner === o) this.owner = null; renderNP(); },
+  stopAll(){ if (this.owner) this.owner.stop(); this.owner = null; api("/api/stop", {}).catch(() => {}); renderNP(); }
+};
+
+// 站点 / AI 候选试听:共用一个 <audio>,按起止时间和淡入淡出播放
+const Pv = {
+  a: null, raf: 0, cur: null,
+  play(clip, label){
+    Bus.claim(this);
+    const a = this.a || (this.a = $("#pv"));
+    this.halt();
+    const start = +clip.start || 0, end = clip.duration > 0 ? start + (+clip.duration) : Infinity;
+    const vol = clamp((clip.volume ?? 0.8) * (C.master_volume ?? 0.7), 0, 1);
+    this.cur = {label, file: clip.file, start, end, vol, cv: clip.volume ?? 0.8, fi: +clip.fade_in || 0, fo: +clip.fade_out || 0, loop: !!clip.loop};
+    const go = () => {
+      if (!this.cur) return;
+      a.currentTime = start; a.volume = this.cur.fi > 0 ? 0 : vol;
+      a.play().catch(() => {});
+      this.tick();
+    };
+    const url = musicURL(clip.file);
+    if (a.dataset.file === clip.file && a.readyState >= 1) go();
+    else { a.src = url; a.dataset.file = clip.file; a.addEventListener("loadedmetadata", go, {once: true}); }
+    renderNP(); markPlaying();
+  },
+  tick(){
+    const c = this.cur, a = this.a;
+    if (!c) return;
+    const end = Math.min(c.end, a.duration || Infinity);
+    const t = a.currentTime;
+    let g = c.vol;
+    if (c.fi > 0) g *= clamp((t - c.start) / c.fi, 0, 1);
+    if (!c.loop && isFinite(end) && c.fo > 0) g *= clamp((end - t) / c.fo, 0, 1);
+    a.volume = clamp(g, 0, 1);
+    if (t >= end - 0.02 || a.ended) {
+      if (c.loop) { a.currentTime = c.start; a.play().catch(() => {}); }
+      else return this.stop();
+    }
+    this.raf = requestAnimationFrame(() => this.tick());
+    if (!this._np || performance.now() - this._np > 250) { this._np = performance.now(); renderNP(); }
+  },
+  halt(){ cancelAnimationFrame(this.raf); if (this.a) this.a.pause(); this.cur = null; },
+  stop(){ this.halt(); Bus.release(this); markPlaying(); },
+  status(){
+    const c = this.cur; if (!c || !this.a) return null;
+    const len = isFinite(c.end) ? c.end - c.start : (this.a.duration || 0) - c.start;
+    return {label: c.label, file: c.file, pos: this.a.currentTime - c.start, len};
+  }
+};
+
+// =============================================================== 顶栏
+function renderHUD(){
+  renderHUD0();
+  if (S.demo && S.demo.running) {
+    const el = $("#hud");
+    el.insertAdjacentHTML("afterbegin", `<span class="demo-tag" title="正在模拟一局(不是真实游戏)">模拟</span>`);
+    el.title = `正在模拟:${S.demo.step}(${S.demo.i}/${S.demo.n})`;
+  }
+}
+function renderHUD0(){
+  const g = S.game, el = $("#hud");
+  const online = g.connected && g.last_seen_ago != null && g.last_seen_ago < 30;
+  const pr = S.proc || {};
+  if (!online) {
+    let cls = "off", msg = "等待 CS2", tip = "还没有收到游戏数据";
+    if (pr.running && pr.needs_restart) {
+      cls = "warn"; msg = "需要重启 CS2";
+      tip = "GSI 配置是在这次 CS2 启动之后才写入的,重启一次 CS2 才能收到游戏数据";
+    } else if (pr.running) {
+      cls = "wait"; msg = "CS2 已启动,等待数据";
+      tip = (pr.since_ago || 0) > 90 ? "游戏已经运行一段时间但还没收到数据:去「设置」检查 GSI 配置是否写入、写入后是否重启过 CS2" : "游戏正在加载,进入主菜单后就会连上";
+    } else if (pr.running === false) {
+      msg = "CS2 未运行"; tip = "启动 CS2 后会自动连接;每秒检测一次游戏进程";
+    }
+    el.className = "hud " + cls; el.title = tip;
+    el.innerHTML = `<span class="hud-dot"></span><span class="hud-msg ${cls === "off" ? "dim" : ""}">${msg}</span>`;
+    return;
+  }
+  if (!g.in_match) { el.className = "hud menu"; el.innerHTML = `<span class="hud-dot"></span><span>主菜单</span>`; return; }
+  const lead = (+C.warning_lead || 10) + (+C.latency_comp || 0);
+  let clock = "", bomb = false;
+  if (g.bomb_10s_in != null) { clock = fmtClock(g.bomb_10s_in + lead); bomb = true; }
+  else if (g.round_10s_in != null) clock = fmtClock(g.round_10s_in + lead);
+  const phase = g.bomb === "planted" ? "C4 已安放" : (g.map_phase === "warmup" ? "热身" : (PH[g.round_phase] || PH[g.map_phase] || ""));
+  el.className = "hud match";
+  el.title = g.map ? `地图 ${g.map}` : "";
+  el.innerHTML = `<b class="sc ct ${g.own_team === "CT" ? "mine" : ""}">CT ${g.score_ct ?? 0}</b>
+    <span class="clock ${bomb ? "bomb" : ""}"><span class="clock-t">${clock || "–:––"}</span><span class="clock-p">${esc(phase)}</span></span>
+    <b class="sc t ${g.own_team === "T" ? "mine" : ""}">${g.score_t ?? 0} T</b>`;
+}
+function renderNP(){
+  const el = $("#np"); if (!el || !S) return;
+  const p = Pv.status(), st = Studio.status();
+  let html;
+  if (p) html = `<span class="bars"><i></i><i></i><i></i></span><span class="np-txt">试听 <b>${esc(p.label)}</b> <span class="dim">${fmt(p.pos)} / ${fmt(p.len)}</span></span>`;
+  else if (st) html = `<span class="bars"><i></i><i></i><i></i></span><span class="np-txt">剪辑台 <b>${esc(st.file)}</b> <span class="dim">${fmt(st.pos)}</span></span>`;
+  else if (S.playing) html = `<span class="bars"><i></i><i></i><i></i></span><span class="np-txt">游戏 <b>${esc((META[S.playing.event] || {}).name || S.playing.event)}</b> <span class="dim">${esc(S.playing.file)}</span></span>`;
+  else html = `<span class="np-txt dim">没有在播放</span>`;
+  el.innerHTML = html;
+}
+$("#stopAll").addEventListener("click", () => Bus.stopAll());
+$("#master").addEventListener("input", e => {
+  C.master_volume = +e.target.value;
+  if (Pv.cur) Pv.cur.vol = clamp(Pv.cur.cv * C.master_volume, 0, 1);
+  Studio.applyVolume();
+});
+$("#master").addEventListener("change", e => api("/api/volume", {master_volume: +e.target.value}));
+
+// 游戏事件提示:像击杀信息一样从右上角滑入
+function pushFeed(title, sub, laneId){
+  const d = document.createElement("div");
+  d.className = "kf lane-" + (laneId || "lobby");
+  d.innerHTML = `<b>${esc(title)}</b><span class="kf-clip">${esc(sub)}</span>`;
+  $("#feed").prepend(d);
+  setTimeout(() => d.classList.add("out"), 5500);
+  setTimeout(() => d.remove(), 6000);
+  while ($("#feed").children.length > 5) $("#feed").lastChild.remove();
+}
+let procWasRunning = null;
+function handleProc(){
+  const pr = S.proc || {};
+  if (pr.running == null) return;
+  if (procWasRunning !== null && pr.running !== procWasRunning) {
+    if (pr.running) pushFeed("CS2 已启动", pr.needs_restart ? "需要重启一次 CS2 才能连上" : "进入主菜单后自动连接", "lobby");
+    else pushFeed("CS2 已退出", "音乐已停止", "bomb");
+  }
+  procWasRunning = pr.running;
+}
+let feedSeen = null;
+function handleFeed(){
+  const evs = S.events || [];
+  const key = e => e.t + "|" + e.event;
+  if (feedSeen === null) { feedSeen = evs.length ? key(evs[0]) : ""; return; }
+  const fresh = [];
+  for (const e of evs) { if (key(e) === feedSeen) break; fresh.push(e); }
+  if (!fresh.length) return;
+  feedSeen = key(evs[0]);
+  fresh.reverse().forEach(e => {
+    const c = C.events[e.event] || {}, lane = LANE_OF[e.event];
+    const d = document.createElement("div");
+    d.className = "kf lane-" + (lane ? lane.id : "lobby");
+    d.innerHTML = `<b>${esc(e.name)}</b><span class="kf-clip">${c.file && c.enabled ? esc(c.file) : "未设置音乐"}</span>`;
+    $("#feed").prepend(d);
+    setTimeout(() => d.classList.add("out"), 5500);
+    setTimeout(() => d.remove(), 6000);
+    const stn = $(`.stn[data-ev="${e.event}"]`);
+    if (stn) { stn.classList.remove("fired"); void stn.offsetWidth; stn.classList.add("fired"); }
+  });
+  while ($("#feed").children.length > 5) $("#feed").lastChild.remove();
+}
+
+// =============================================================== 页面切换
+function route(){
+  const page = (location.hash || "#kit").slice(1);
+  const valid = ["kit", "studio", "ai", "community", "voice", "settings", "guide"].includes(page) ? page : "kit";
+  $$(".page").forEach(p => p.hidden = p.id !== "page-" + valid);
+  $$(".tabs a").forEach(a => a.dataset.page === valid ? a.setAttribute("aria-current", "page") : a.removeAttribute("aria-current"));
+  if (valid === "kit") requestAnimationFrame(drawRails);
+  if (valid === "studio") requestAnimationFrame(() => Studio.resize());
+  if (valid === "ai") requestAnimationFrame(drawTimelines);
+  if (valid !== "kit") closeDrawer();
+  if (valid !== "community") Cm.closeSheet();
+  if (valid === "community" && Cm.inited && Cm.st && Cm.st.url) Cm.refresh();
+  if (valid === "voice") Vc.show(); else Vc.hide();
+  $("#guideLink").classList.toggle("on", valid === "guide");
+  if (valid === "guide" && S) Guide.render();
+  document.title = {kit: "CS2 音乐盒", studio: "剪辑台 – CS2 音乐盒", ai: "AI 推荐 – CS2 音乐盒", community: "社区 – CS2 音乐盒",
+                    voice: "队友语音 – CS2 音乐盒", settings: "设置 – CS2 音乐盒", guide: "新手教程 – CS2 音乐盒"}[valid];
+}
+window.addEventListener("hashchange", route);
+
+// =============================================================== 音乐盒:回合线路图
+function stationHTML(key, lane, row, col){
+  const m = META[key], c = C.events[key];
+  const has = !!c.file, missing = has && !libHas(c.file);
+  const time = !has ? "" : c.duration > 0 ? `${fmt(c.start)} – ${fmt(c.start + c.duration)}` : (c.start > 0 ? `从 ${fmt(c.start)} 到结尾` : "整首");
+  return `<div class="stn lane-${lane.id}${has ? "" : " empty"}${c.enabled ? "" : " off"}" data-ev="${key}"
+      style="grid-row:${row};grid-column:${col}" tabindex="0" role="button" aria-label="${esc(m.name)}:${has ? esc(c.file) : "未设置音乐"}">
+    <span class="pin"></span>
+    <div class="stn-top"><span class="stn-name">${esc(m.name)}</span>${c.loop && has ? '<span class="tag">循环</span>' : ""}</div>
+    <div class="stn-clip${missing ? " warn" : ""}">${has ? esc(c.file) + (missing ? "(曲库里找不到)" : "") : "未设置音乐"}</div>
+    <div class="stn-time">${time}</div>
+    <div class="stn-act">
+      ${has && !missing ? `<button class="ico" data-act="play" title="试听" aria-label="试听">${ICON.play}</button>
+      <button class="ico" data-act="cut" title="在剪辑台打开" aria-label="在剪辑台打开">${ICON.cut}</button>` : `<span class="set">点击设置</span>`}
+      <label class="sw" title="启用"><input type="checkbox" data-act="toggle" ${c.enabled ? "checked" : ""} aria-label="启用"><span></span></label>
+    </div>
+  </div>`;
+}
+function renderKit(){
+  let html = `<div class="axis" style="grid-row:1;grid-column:1"></div>` +
+    COLS.map((c, i) => `<div class="axis" style="grid-row:1;grid-column:${i + 2}">${c}</div>`).join("");
+  let row = 2;
+  for (const lane of LANES) {
+    html += `<div class="lane-name lane-${lane.id}" style="grid-row:${row} / span ${lane.rows.length};grid-column:1">${lane.name}</div>`;
+    lane.rows.forEach((r, ri) => r.forEach(([k, col]) => html += stationHTML(k, lane, row + ri, col + 1)));
+    row += lane.rows.length;
+  }
+  html += `<svg class="rails" id="rails" aria-hidden="true"></svg>`;
+  $("#metro").innerHTML = html;
+  drawRails(); markPlaying();
+  if (drawerKey) { const s = $(`.stn[data-ev="${drawerKey}"]`); if (s) s.classList.add("sel"); }
+}
+function drawRails(){
+  const m = $("#metro"), svg = $("#rails");
+  if (!svg || !m.offsetParent || getComputedStyle(svg).display === "none") return;
+  const box = m.getBoundingClientRect();
+  svg.setAttribute("viewBox", `0 0 ${box.width} ${box.height}`);
+  svg.setAttribute("width", box.width); svg.setAttribute("height", box.height);
+  const P = k => {
+    const p = m.querySelector(`.stn[data-ev="${k}"] .pin`).getBoundingClientRect();
+    return {x: p.left + p.width / 2 - box.left, y: p.top + p.height / 2 - box.top};
+  };
+  const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+  const out = [];
+  const line = (a, b, col, dash) => out.push(`<path d="M${a.x} ${a.y} L${b.x} ${b.y}" stroke="${col}" stroke-width="2" fill="none"${dash ? ' stroke-dasharray="5 5"' : ""}/>`);
+  const chain = (keys, col) => keys.slice(1).forEach((k, i) => line(P(keys[i]), P(k), col));
+  const drop = (fromKey, toKey, col, dash) => { const a = P(fromKey), b = P(toKey); line({x: b.x, y: a.y}, b, col, dash); };
+  chain(["menu", "warmup"], css("--lobby"));
+  chain(["freezetime", "round_live", "round_10s", "round_won", "mvp"], css("--ct"));
+  drop("round_live", "death", css("--ct"), true);
+  drop("round_won", "round_lost", css("--ct"));
+  chain(["bomb_planted", "bomb_10s"], css("--fuse"));
+  drop("round_live", "bomb_planted", css("--fuse"), true);
+  svg.innerHTML = out.join("");
+}
+window.addEventListener("resize", () => { drawRails(); });
+function markPlaying(){
+  const ev = S && S.playing ? S.playing.event : null;
+  $$(".stn").forEach(s => s.classList.toggle("on-air", s.dataset.ev === ev));
+}
+$("#metro").addEventListener("click", e => {
+  const stn = e.target.closest(".stn"); if (!stn) return;
+  const key = stn.dataset.ev, act = e.target.closest("[data-act]")?.dataset.act;
+  if (act === "toggle") {
+    C.events[key].enabled = e.target.checked;
+    stn.classList.toggle("off", !e.target.checked);
+    save(e.target.checked ? `已启用「${META[key].name}」` : `已停用「${META[key].name}」`);
+    if (drawerKey === key) fillDrawer(key);
+    return;
+  }
+  if (e.target.closest("label.sw")) return;
+  if (act === "play") return Pv.play(C.events[key], META[key].name);
+  if (act === "cut") return openInStudio(key);
+  openDrawer(key);
+});
+$("#metro").addEventListener("keydown", e => {
+  if ((e.key === "Enter" || e.key === " ") && e.target.classList.contains("stn")) { e.preventDefault(); openDrawer(e.target.dataset.ev); }
+});
+function openInStudio(key){
+  const c = C.events[key];
+  const end = c.duration > 0 ? c.start + c.duration : Infinity;    // 0 = 到结尾
+  location.hash = "#studio";
+  Studio.open(c.file, {a: c.start, b: end}, key);
+}
+
+// ---------------- 站点详情抽屉
+let drawerKey = null;
+function openDrawer(key){
+  drawerKey = key;
+  $$(".stn").forEach(s => s.classList.toggle("sel", s.dataset.ev === key));
+  fillDrawer(key);
+  const d = $("#drawer"); d.classList.add("open"); d.setAttribute("aria-hidden", "false");
+  setTimeout(() => $("#drFile").focus({preventScroll: true}), 50);
+}
+function closeDrawer(){
+  if (!drawerKey) return;
+  const k = drawerKey; drawerKey = null;
+  $("#drawer").classList.remove("open"); $("#drawer").setAttribute("aria-hidden", "true");
+  $$(".stn").forEach(s => s.classList.remove("sel"));
+  const s = $(`.stn[data-ev="${k}"]`); if (s && !$("#page-kit").hidden) s.focus({preventScroll: true});
+}
+function fillDrawer(key){
+  const m = META[key], c = C.events[key], lane = LANE_OF[key];
+  $("#drHead").className = "dr-head";
+  $("#drawer").className = "drawer open lane-" + lane.id;
+  $("#drLane").textContent = lane.name + "轨道";
+  $("#drName").textContent = m.name;
+  $("#drDesc").textContent = m.desc || "";
+  $("#drOn").checked = c.enabled;
+  const opts = ['<option value="">(不播放)</option>'].concat(LIB.map(f => `<option value="${esc(f.file)}">${esc(f.file)}</option>`));
+  if (c.file && !libHas(c.file)) opts.push(`<option value="${esc(c.file)}">${esc(c.file)}(曲库里找不到)</option>`);
+  $("#drFile").innerHTML = opts.join(""); $("#drFile").value = c.file || "";
+  $("#drStart").value = c.start; $("#drDur").value = c.duration;
+  $("#drVol").value = c.volume; $("#drVolV").textContent = Math.round(c.volume * 100) + "%";
+  $("#drLoop").checked = c.loop; $("#drFin").value = c.fade_in; $("#drFout").value = c.fade_out; $("#drPri").value = c.priority;
+  $("#drPlay").disabled = $("#drCut").disabled = !c.file || !libHas(c.file);
+}
+function drawerChanged(){
+  const key = drawerKey; if (!key) return;
+  const c = C.events[key];
+  c.enabled = $("#drOn").checked; c.file = $("#drFile").value;
+  c.start = Math.max(0, +$("#drStart").value || 0); c.duration = Math.max(0, +$("#drDur").value || 0);
+  c.volume = +$("#drVol").value; c.loop = $("#drLoop").checked;
+  c.fade_in = Math.max(0, +$("#drFin").value || 0); c.fade_out = Math.max(0, +$("#drFout").value || 0);
+  c.priority = Math.round(+$("#drPri").value || 0);
+  $("#drVolV").textContent = Math.round(c.volume * 100) + "%";
+  $("#drPlay").disabled = $("#drCut").disabled = !c.file || !libHas(c.file);
+  renderKit(); save();
+}
+["#drOn", "#drFile", "#drStart", "#drDur", "#drVol", "#drLoop", "#drFin", "#drFout", "#drPri"].forEach(s => $(s).addEventListener("change", drawerChanged));
+$("#drVol").addEventListener("input", () => $("#drVolV").textContent = Math.round($("#drVol").value * 100) + "%");
+$("#drClose").addEventListener("click", closeDrawer);
+$("#drPlay").addEventListener("click", () => Pv.play(C.events[drawerKey], META[drawerKey].name));
+$("#drCut").addEventListener("click", () => { const k = drawerKey; closeDrawer(); openInStudio(k); });
+$("#drClear").addEventListener("click", () => {
+  const c = C.events[drawerKey]; c.file = ""; c.start = 0;
+  fillDrawer(drawerKey); renderKit(); save(`已清空「${META[drawerKey].name}」`);
+});
+
+// =============================================================== 剪辑台
+const SEC_COLORS = {"前奏": "#3d4450", "主歌": "#33506a", "铺垫": "#7a5420", "高潮": "#a55d12", "间奏": "#2c544b", "尾奏": "#3d4450"};
+const Studio = {
+  ctx: null, file: null, buf: null, peaks: null, dur: 0, info: null,
+  view: {a: 0, b: 1}, sel: {a: 0, b: 10}, cursor: 0, loop: true, snap: "beat",
+  fadeIn: 0.05, fadeOut: 0.5, gainDb: 0, target: null, playing: null, raf: 0, drag: null, loadId: 0,
+
+  async open(file, region, target){
+    if (!file) return;
+    const id = ++this.loadId;
+    this.stop();
+    this.target = target || null;
+    $("#deckEmpty").hidden = true; $("#deckBody").hidden = false;
+    $("#stTitle").textContent = file; $("#stMeta").textContent = "正在载入…";
+    this.file = file; this.info = null; this.buf = null; this.peaks = null;
+    renderLibList(); this.renderTarget();
+    try {
+      this.ctx = this.ctx || new (window.AudioContext || window.webkitAudioContext)();
+      const ab = await (await fetch(musicURL(file))).arrayBuffer();
+      const buf = await this.ctx.decodeAudioData(ab);
+      if (id !== this.loadId) return;
+      this.buf = buf; this.dur = buf.duration; this.buildPeaks();
+    } catch (e) {
+      if (id !== this.loadId) return;
+      $("#stMeta").textContent = "这个文件无法在浏览器里解码:" + e.message; return;
+    }
+    const a = region && region.a != null ? clamp(region.a, 0, Math.max(0, this.dur - 0.2)) : 0;
+    const b = region && region.b != null ? clamp(region.b, a + 0.2, this.dur) : Math.min(this.dur, a + 10);
+    this.sel = {a, b}; this.cursor = a;
+    this.view = {a: 0, b: this.dur};
+    if (region && region.a != null) this.zoomToSel();
+    const ev = this.target ? C.events[this.target] : null;
+    this.fadeIn = ev ? Math.max(0.02, +ev.fade_in || 0) : 0.05;
+    this.fadeOut = ev ? Math.max(0.05, +ev.fade_out || 0) : 0.5;
+    this.gainDb = 0;
+    this.syncInputs(); this.resize();
+    this.updateMeta();
+    try { localStorage.setItem("mb_last_file", file); } catch {}
+    api("/api/song_info", {file}).then(r => {
+      if (id !== this.loadId) return;
+      if (r.ok) { this.info = r.info; this.updateMeta(); this.draw(); }
+      else { this.info = null; this.updateMeta(r.error); }
+    }).catch(() => {});
+  },
+  updateMeta(err){
+    const parts = [fmt(this.dur)];
+    if (this.info) parts.push(this.info.has_beat ? Math.round(this.info.tempo) + " BPM" : "节拍不明显", this.info.key);
+    $("#stMeta").textContent = parts.join("   ") + (err ? "   (" + err + ")" : (this.info ? "" : "   正在识别段落和节拍…"));
+  },
+  renderTarget(){
+    const t = $("#target");
+    if (!this.target) { t.hidden = true; this.fillEvSelect(); return; }
+    const m = META[this.target];
+    t.hidden = false;
+    t.innerHTML = `<span>正在为「<b>${esc(m.name)}</b>」剪辑。选好后点「保存并使用」就会替换这个站点的音乐。</span><button class="btn ghost" id="tgClear">不针对站点</button>`;
+    $("#tgClear").onclick = () => { this.target = null; this.renderTarget(); };
+    this.fillEvSelect();
+  },
+  fillEvSelect(){
+    $("#exEv").innerHTML = S.meta.map(m => `<option value="${m.key}">用于「${esc(m.name)}」</option>`).join("");
+    $("#exEv").value = this.target || "mvp";
+  },
+  buildPeaks(){
+    const B = 256, n = this.buf.length, ch = this.buf.numberOfChannels;
+    const peaks = new Float32Array(Math.ceil(n / B));
+    for (let c = 0; c < ch; c++) {
+      const d = this.buf.getChannelData(c);
+      for (let i = 0, k = 0; i < n; i += B, k++) {
+        let m = peaks[k];
+        const e = Math.min(n, i + B);
+        for (let j = i; j < e; j++) { const v = d[j] < 0 ? -d[j] : d[j]; if (v > m) m = v; }
+        peaks[k] = m;
+      }
+    }
+    this.peaks = peaks; this.B = B;
+  },
+  peakAt(t0, t1){
+    const sr = this.buf.sampleRate;
+    let s0 = Math.max(0, Math.floor(t0 * sr)), s1 = Math.min(this.buf.length, Math.ceil(t1 * sr));
+    if (s1 <= s0) return 0;
+    if (s1 - s0 >= this.B) {
+      let m = 0;
+      for (let k = Math.floor(s0 / this.B), e = Math.ceil(s1 / this.B); k < e; k++) if (this.peaks[k] > m) m = this.peaks[k];
+      return m;
+    }
+    let m = 0;
+    for (let c = 0; c < this.buf.numberOfChannels; c++) {
+      const d = this.buf.getChannelData(c);
+      for (let j = s0; j < s1; j++) { const v = d[j] < 0 ? -d[j] : d[j]; if (v > m) m = v; }
+    }
+    return m;
+  },
+  // ---------- 坐标
+  x2t(x, W){ return this.view.a + (x / W) * (this.view.b - this.view.a); },
+  t2x(t, W){ return (t - this.view.a) / (this.view.b - this.view.a) * W; },
+  beats(){
+    if (!this.info || !this.info.bars || !this.info.bars.length) return null;
+    const bars = this.info.bars, bl = this.info.beat_len, out = [];
+    const barLen = this.info.bar_len || bl * 4;
+    for (let t = bars[0] - barLen; t > -barLen; t -= barLen) for (let k = 3; k >= 0; k--) { const x = t + k * bl; if (x >= 0) out.unshift({t: x, bar: k === 0}); }
+    bars.forEach((b, i) => { const nxt = bars[i + 1] ?? b + barLen; for (let k = 0; k < 4; k++) { const x = b + k * bl; if (x < nxt - bl * 0.5) out.push({t: x, bar: k === 0}); } });
+    return out;
+  },
+  snapT(t, W){
+    if (this.snap === "off") return t;
+    const grid = this.beats(); if (!grid) return t;
+    const tol = 9 / W * (this.view.b - this.view.a);
+    let best = t, bd = tol;
+    for (const g of grid) {
+      if (this.snap === "bar" && !g.bar) continue;
+      const d = Math.abs(g.t - t); if (d < bd) { bd = d; best = g.t; }
+    }
+    return best;
+  },
+  // ---------- 绘制
+  resize(){
+    for (const cv of [$("#ov"), $("#wf")]) {
+      const dpr = window.devicePixelRatio || 1, W = cv.clientWidth, H = cv.clientHeight;
+      if (!W) continue;
+      cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+    }
+    this.syncZoomSlider(); this.draw();
+  },
+  draw(){
+    if (!this.buf) return;
+    this.drawOv(); this.drawWf();
+  },
+  playPos(){
+    const p = this.playing; if (!p) return null;
+    const el = this.ctx.currentTime - p.t0;
+    if (p.loop) return p.from + (el % (p.to - p.from));
+    return p.from + el;
+  },
+  drawSections(g, W, y, h, a, b, labels){
+    if (!this.info) return;
+    const x = t => (t - a) / (b - a) * W;
+    g.font = "11px " + getComputedStyle(document.body).fontFamily;
+    for (const s of this.info.sections) {
+      const x0 = x(s.start), x1 = x(s.end);
+      if (x1 < 0 || x0 > W) continue;
+      g.fillStyle = SEC_COLORS[s.label] || "#3d4450"; g.fillRect(x0, y, x1 - x0, h);
+      g.fillStyle = "rgba(0,0,0,.4)"; g.fillRect(x0, y, 1, h);
+      if (labels && x1 - x0 > 30) { g.fillStyle = "rgba(236,232,223,.85)"; g.fillText(s.label, Math.max(x0, 0) + 4, y + h - 4); }
+    }
+  },
+  drawOv(){
+    const cv = $("#ov"), g = cv.getContext("2d"), dpr = window.devicePixelRatio || 1;
+    const W = cv.width / dpr, H = cv.height / dpr;
+    g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, W, H);
+    this.drawSections(g, W, 0, H, 0, this.dur, true);
+    if (this.info) { g.fillStyle = "rgba(21,26,32,.55)"; g.fillRect(0, 0, W, H); }
+    const mid = H / 2 + 6;
+    g.fillStyle = "rgba(236,232,223,.55)";
+    for (let x = 0; x < W; x++) {
+      const p = Math.pow(this.peakAt(x / W * this.dur, (x + 1) / W * this.dur), 0.7) * (H / 2 - 8);
+      g.fillRect(x, mid - p, 1, p * 2 || 1);
+    }
+    const sx0 = this.sel.a / this.dur * W, sx1 = this.sel.b / this.dur * W;
+    g.fillStyle = "rgba(242,165,65,.35)"; g.fillRect(sx0, 0, Math.max(2, sx1 - sx0), H);
+    const vx0 = this.view.a / this.dur * W, vx1 = this.view.b / this.dur * W;
+    g.strokeStyle = "rgba(236,232,223,.8)"; g.lineWidth = 1; g.strokeRect(vx0 + .5, .5, Math.max(3, vx1 - vx0 - 1), H - 1);
+    const pp = this.playPos();
+    if (pp != null) { g.fillStyle = "#f2a541"; g.fillRect(pp / this.dur * W - 1, 0, 2, H); }
+  },
+  drawWf(){
+    const cv = $("#wf"), g = cv.getContext("2d"), dpr = window.devicePixelRatio || 1;
+    const W = cv.width / dpr, H = cv.height / dpr;
+    g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, W, H);
+    const {a, b} = this.view, span = b - a;
+    const top = 16, bottom = H - 20, mid = (top + bottom) / 2, amp = (bottom - top) / 2;
+    this.drawSections(g, W, 0, 14, a, b, true);
+    // 节拍网格
+    const grid = this.beats();
+    if (grid) {
+      const pxBeat = (this.info.beat_len / span) * W;
+      for (const q of grid) {
+        if (q.t < a || q.t > b) continue;
+        if (!q.bar && pxBeat < 10) continue;
+        const x = Math.round(this.t2x(q.t, W)) + .5;
+        g.fillStyle = q.bar ? "rgba(236,232,223,.16)" : "rgba(236,232,223,.06)";
+        g.fillRect(x, top, 1, bottom - top);
+      }
+    }
+    // 波形
+    const sx0 = this.t2x(this.sel.a, W), sx1 = this.t2x(this.sel.b, W);
+    for (let x = 0; x < W; x++) {
+      const t0 = a + x / W * span, t1 = a + (x + 1) / W * span;
+      const p = Math.pow(this.peakAt(t0, t1), 0.7) * amp;
+      g.fillStyle = x >= sx0 && x <= sx1 ? "#ece8df" : "#5d6672";
+      g.fillRect(x, mid - p, 1, Math.max(1, p * 2));
+    }
+    // 选区 + 淡入淡出示意
+    g.fillStyle = "rgba(242,165,65,.13)"; g.fillRect(sx0, top, sx1 - sx0, bottom - top);
+    g.strokeStyle = "rgba(242,165,65,.7)"; g.lineWidth = 1.5; g.beginPath();
+    const fiX = this.t2x(this.sel.a + this.fadeIn, W), foX = this.t2x(this.sel.b - this.fadeOut, W);
+    g.moveTo(sx0, bottom); g.lineTo(Math.min(fiX, (sx0 + sx1) / 2), top);
+    g.moveTo(Math.max(foX, (sx0 + sx1) / 2), top); g.lineTo(sx1, bottom); g.stroke();
+    g.fillStyle = "#f2a541";
+    for (const x of [sx0, sx1]) { g.fillRect(x - 1, top - 2, 2, bottom - top + 4); g.fillRect(x - 5, top - 4, 10, 8); }
+    // 光标与播放头
+    const cx = this.t2x(this.cursor, W);
+    g.fillStyle = "rgba(236,232,223,.7)"; g.fillRect(cx, top, 1, bottom - top);
+    const pp = this.playPos();
+    if (pp != null && pp >= a && pp <= b) { g.fillStyle = "#f2a541"; g.fillRect(this.t2x(pp, W) - 1, 0, 2, H); }
+    // 时间刻度
+    const steps = [0.1, 0.25, 0.5, 1, 2, 5, 10, 15, 30, 60];
+    const st = steps.find(s => s / span * W >= 70) || 60;
+    g.fillStyle = "#9aa3ae"; g.font = "11px " + getComputedStyle(document.body).fontFamily;
+    for (let t = Math.ceil(a / st) * st; t <= b; t += st) {
+      const x = this.t2x(t, W);
+      g.fillRect(x, H - 16, 1, 4);
+      g.fillText(st < 1 ? fmt(t) : fmt(t).replace(/\.0$/, ""), x + 3, H - 5);
+    }
+  },
+  // ---------- 缩放
+  syncZoomSlider(){
+    if (!this.buf) return;
+    const minSpan = Math.min(2, this.dur), span = this.view.b - this.view.a;
+    $("#zoom").value = this.dur <= minSpan ? 0 : Math.log(this.dur / span) / Math.log(this.dur / minSpan);
+  },
+  setSpan(span, centerT){
+    const minSpan = Math.min(2, this.dur);
+    span = clamp(span, minSpan, this.dur);
+    let a = centerT - span / 2;
+    a = clamp(a, 0, this.dur - span);
+    this.view = {a, b: a + span};
+    this.syncZoomSlider(); this.draw();
+  },
+  zoomAt(factor, t, frac){
+    const span = clamp((this.view.b - this.view.a) * factor, Math.min(2, this.dur), this.dur);
+    let a = t - frac * span; a = clamp(a, 0, this.dur - span);
+    this.view = {a, b: a + span}; this.syncZoomSlider(); this.draw();
+  },
+  zoomToSel(){
+    const len = this.sel.b - this.sel.a;
+    this.setSpan(Math.max(len * 1.6, Math.min(4, this.dur)), (this.sel.a + this.sel.b) / 2);
+  },
+  // ---------- 选区
+  setSel(a, b, keepPlaying){
+    a = clamp(a, 0, this.dur); b = clamp(b, 0, this.dur);
+    if (b - a < 0.2) { if (this.drag && this.drag.mode === "a") a = b - 0.2; else b = a + 0.2; }
+    this.sel = {a: Math.max(0, a), b: Math.min(this.dur, b)};
+    this.syncInputs(); this.draw();
+  },
+  syncInputs(){
+    if (document.activeElement !== $("#inA")) $("#inA").value = fmt(this.sel.a);
+    if (document.activeElement !== $("#inB")) $("#inB").value = fmt(this.sel.b);
+    const len = this.sel.b - this.sel.a;
+    $("#selLen").textContent = len.toFixed(1) + " 秒";
+    let info = "";
+    if (this.info && this.info.has_beat) info = `约 ${(len / this.info.bar_len).toFixed(1)} 小节`;
+    const sec = this.info ? this.info.sections.find(s => this.sel.a >= s.start - 0.05 && this.sel.a < s.end) : null;
+    if (sec) info += (info ? ",从「" : "从「") + sec.label + "」段开始";
+    $("#selInfo").textContent = info;
+    $("#fIn").value = this.fadeIn; $("#fOut").value = this.fadeOut;
+    $("#gain").value = this.gainDb; $("#gainV").textContent = (this.gainDb > 0 ? "+" : "") + this.gainDb + " dB";
+    const base = this.file ? this.file.replace(/\.[^.]+$/, "") : "片段";
+    const tn = t => { t = Math.round(t * 10) / 10; const m = Math.floor(t / 60); return `${m}m${(t - m * 60).toFixed(1)}s`; };
+    if (!this._nameEdited) $("#clipName").value = `${base} 片段 ${tn(this.sel.a)}-${tn(this.sel.b)}`;
+  },
+  // ---------- 播放(Web Audio)
+  status(){ const p = this.playing; return p ? {file: this.file, pos: this.playPos()} : null; },
+  start(from, to, loop){
+    if (!this.buf) return;
+    Bus.claim(this);
+    this.halt();
+    if (this.ctx.state === "suspended") this.ctx.resume();
+    const src = this.ctx.createBufferSource(), g = this.ctx.createGain();
+    src.buffer = this.buf; src.connect(g).connect(this.ctx.destination);
+    const now = this.ctx.currentTime + 0.02, len = to - from;
+    const vol = Math.pow(10, this.gainDb / 20) * (C.master_volume ?? 0.7);
+    if (loop) {
+      src.loop = true; src.loopStart = from; src.loopEnd = to;
+      g.gain.setValueAtTime(0, now); g.gain.linearRampToValueAtTime(vol, now + 0.01);
+      src.start(now, from);
+    } else {
+      const fi = Math.min(this.fadeIn, len / 2), fo = Math.min(this.fadeOut, len / 2);
+      g.gain.setValueAtTime(0, now);
+      g.gain.linearRampToValueAtTime(vol, now + Math.max(0.005, fi));
+      g.gain.setValueAtTime(vol, now + len - Math.max(0.005, fo));
+      g.gain.linearRampToValueAtTime(0, now + len);
+      src.start(now, from, len);
+    }
+    const p = {src, g, t0: now, from, to, loop, vol};
+    src.onended = () => { if (this.playing === p) this.stop(); };
+    this.playing = p;
+    this.tick(); this.btns(); renderNP();
+  },
+  tick(){
+    cancelAnimationFrame(this.raf);
+    if (!this.playing) return;
+    this.draw();
+    if (!this._np || performance.now() - this._np > 250) { this._np = performance.now(); renderNP(); }
+    this.raf = requestAnimationFrame(() => this.tick());
+  },
+  halt(){
+    cancelAnimationFrame(this.raf);
+    const p = this.playing; this.playing = null;
+    if (p) { try { p.g.gain.cancelScheduledValues(0); p.src.stop(); } catch {} p.src.disconnect(); }
+  },
+  stop(){ this.halt(); Bus.release(this); this.btns(); this.draw(); },
+  applyVolume(){ const p = this.playing; if (p && p.loop) p.g.gain.value = Math.pow(10, this.gainDb / 20) * (C.master_volume ?? 0.7); },
+  togglePlay(){ this.playing ? this.stop() : this.start(this.sel.a, this.sel.b, this.loop); },
+  btns(){
+    $("#tPlay").textContent = this.playing ? "停止" : "播放选区";
+    $("#tLoop").setAttribute("aria-pressed", String(this.loop)); $("#tLoop").classList.toggle("on", this.loop);
+  },
+  // ---------- 导出
+  renderWav(){
+    const sr = this.buf.sampleRate, ch = Math.min(2, this.buf.numberOfChannels);
+    const s0 = Math.round(this.sel.a * sr), s1 = Math.round(this.sel.b * sr), n = s1 - s0;
+    const fi = Math.round(this.fadeIn * sr), fo = Math.round(this.fadeOut * sr), gain = Math.pow(10, this.gainDb / 20);
+    const pcm = new Int16Array(n * ch);
+    for (let c = 0; c < ch; c++) {
+      const d = this.buf.getChannelData(c);
+      for (let i = 0; i < n; i++) {
+        let v = d[s0 + i] * gain;
+        if (i < fi) v *= i / fi;
+        if (i >= n - fo) v *= (n - 1 - i) / fo;
+        v = v > 1 ? 1 : v < -1 ? -1 : v;
+        pcm[i * ch + c] = v < 0 ? v * 32768 : v * 32767;
+      }
+    }
+    const hdr = new DataView(new ArrayBuffer(44));
+    const w = (o, s) => [...s].forEach((c, i) => hdr.setUint8(o + i, c.charCodeAt(0)));
+    w(0, "RIFF"); hdr.setUint32(4, 36 + pcm.byteLength, true); w(8, "WAVE");
+    w(12, "fmt "); hdr.setUint32(16, 16, true); hdr.setUint16(20, 1, true); hdr.setUint16(22, ch, true);
+    hdr.setUint32(24, sr, true); hdr.setUint32(28, sr * ch * 2, true); hdr.setUint16(32, ch * 2, true); hdr.setUint16(34, 16, true);
+    w(36, "data"); hdr.setUint32(40, pcm.byteLength, true);
+    return new Blob([hdr.buffer, pcm.buffer], {type: "audio/wav"});
+  },
+  clipFileName(){
+    let n = ($("#clipName").value || "片段").trim().replace(/[\\/:*?"<>|]/g, "_").replace(/\.(wav|mp3|ogg|flac)$/i, "");
+    return (n || "片段") + ".wav";
+  },
+  async saveToLibrary(){
+    const blob = this.renderWav(), name = this.clipFileName();
+    const origin = {file: this.file, start: this.sel.a, end: this.sel.b, fade_in: this.fadeIn, fade_out: this.fadeOut, gain_db: this.gainDb};
+    const r = await fetch("/api/upload", {method: "POST", headers: {"X-MusicBox": "1", "X-Unique": "1",
+      "X-Filename": encodeURIComponent(name), "X-Clip-Origin": encodeURIComponent(JSON.stringify(origin))}, body: blob}).then(r => r.json());
+    if (!r.ok) { toast("保存失败:" + r.error, true); return null; }
+    await refresh();
+    return r.file;
+  },
+};
+
+// ---------- 剪辑台:鼠标操作
+(function(){
+  const wf = $("#wf"), ov = $("#ov");
+  const W = () => wf.clientWidth;
+  const hit = x => {
+    const w = W(), xa = Studio.t2x(Studio.sel.a, w), xb = Studio.t2x(Studio.sel.b, w);
+    if (Math.abs(x - xa) <= 7) return "a";
+    if (Math.abs(x - xb) <= 7) return "b";
+    if (x > xa && x < xb) return "move";
+    return "new";
+  };
+  wf.addEventListener("pointermove", e => {
+    if (!Studio.buf) return;
+    const x = e.offsetX;
+    if (!Studio.drag) { const h = hit(x); wf.style.cursor = h === "a" || h === "b" ? "ew-resize" : h === "move" ? "grab" : "crosshair"; return; }
+    const d = Studio.drag, t = Studio.x2t(x, W());
+    d.moved = d.moved || Math.abs(x - d.x0) > 3;
+    if (!d.moved) return;
+    if (d.mode === "new") { const s = Studio.snapT(t, W()); Studio.setSel(Math.min(d.t0, s), Math.max(d.t0, s)); }
+    else if (d.mode === "a") Studio.setSel(Math.min(Studio.snapT(t, W()), Studio.sel.b - 0.2), Studio.sel.b);
+    else if (d.mode === "b") Studio.setSel(Studio.sel.a, Math.max(Studio.snapT(t, W()), Studio.sel.a + 0.2));
+    else if (d.mode === "move") {
+      const len = d.b0 - d.a0; let a = Studio.snapT(d.a0 + (t - d.t0), W()); a = clamp(a, 0, Studio.dur - len);
+      Studio.setSel(a, a + len);
+    }
+  });
+  wf.addEventListener("pointerdown", e => {
+    if (!Studio.buf || e.button !== 0) return;
+    wf.setPointerCapture(e.pointerId);
+    const t = Studio.x2t(e.offsetX, W()), mode = hit(e.offsetX);
+    Studio.drag = {mode, x0: e.offsetX, t0: mode === "new" ? Studio.snapT(t, W()) : t, a0: Studio.sel.a, b0: Studio.sel.b, moved: false};
+    if (mode === "move") wf.style.cursor = "grabbing";
+  });
+  const end = e => {
+    const d = Studio.drag; if (!d) return;
+    Studio.drag = null;
+    if (!d.moved) {                       // 单击:移动光标
+      Studio.cursor = clamp(Studio.x2t(d.x0, W()), 0, Studio.dur); Studio.draw();
+    } else if (Studio.playing && Studio.playing.loop) Studio.start(Studio.sel.a, Studio.sel.b, true);
+  };
+  wf.addEventListener("pointerup", end); wf.addEventListener("pointercancel", end);
+  wf.addEventListener("wheel", e => {
+    if (!Studio.buf) return;
+    e.preventDefault();
+    const w = W(), span = Studio.view.b - Studio.view.a;
+    if (e.shiftKey || Math.abs(e.deltaX) > Math.abs(e.deltaY)) {
+      const d = (e.shiftKey ? e.deltaY : e.deltaX) / w * span;
+      const a = clamp(Studio.view.a + d, 0, Studio.dur - span); Studio.view = {a, b: a + span}; Studio.draw();
+    } else Studio.zoomAt(Math.exp(e.deltaY * 0.0015), Studio.x2t(e.offsetX, w), e.offsetX / w);
+  }, {passive: false});
+  const ovMove = e => {
+    if (!Studio.buf) return;
+    const t = e.offsetX / ov.clientWidth * Studio.dur, span = Studio.view.b - Studio.view.a;
+    const a = clamp(t - span / 2, 0, Studio.dur - span); Studio.view = {a, b: a + span}; Studio.draw();
+  };
+  ov.addEventListener("pointerdown", e => { ov.setPointerCapture(e.pointerId); ov._drag = true; ovMove(e); });
+  ov.addEventListener("pointermove", e => { if (ov._drag) ovMove(e); });
+  ov.addEventListener("pointerup", () => ov._drag = false);
+  window.addEventListener("resize", () => { if (!$("#page-studio").hidden) Studio.resize(); });
+})();
+
+// ---------- 剪辑台:控件
+$("#tPlay").addEventListener("click", () => Studio.togglePlay());
+$("#tLoop").addEventListener("click", () => {
+  Studio.loop = !Studio.loop; Studio.btns();
+  if (Studio.playing) Studio.start(Studio.sel.a, Studio.sel.b, Studio.loop);
+});
+$("#tFrom").addEventListener("click", () => Studio.start(Studio.cursor, Studio.dur, false));
+$("#zoom").addEventListener("input", e => {
+  if (!Studio.buf) return;
+  const minSpan = Math.min(2, Studio.dur), span = Studio.dur / Math.pow(Studio.dur / minSpan, +e.target.value);
+  Studio.setSpan(span, (Studio.view.a + Studio.view.b) / 2);
+});
+$("#zSel").addEventListener("click", () => Studio.zoomToSel());
+$("#snap").addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  Studio.snap = b.dataset.snap;
+  $$("#snap button").forEach(x => x.setAttribute("aria-pressed", String(x === b)));
+});
+$$(".nudge").forEach(n => n.addEventListener("click", e => {
+  const d = e.target.dataset.d; if (!d || !Studio.buf) return;
+  const bl = Studio.info ? Studio.info.beat_len : 0.5;
+  const step = d === "beat" ? bl : d === "-beat" ? -bl : +d;
+  if (n.dataset.edge === "a") Studio.setSel(Math.min(Studio.sel.a + step, Studio.sel.b - 0.2), Studio.sel.b);
+  else Studio.setSel(Studio.sel.a, Math.max(Studio.sel.b + step, Studio.sel.a + 0.2));
+  if (Studio.playing && Studio.playing.loop) Studio.start(Studio.sel.a, Studio.sel.b, true);
+}));
+for (const [id, edge] of [["#inA", "a"], ["#inB", "b"]]) {
+  $(id).addEventListener("change", e => {
+    const t = parseTime(e.target.value);
+    if (!isFinite(t)) { Studio.syncInputs(); return; }
+    if (edge === "a") Studio.setSel(Math.min(t, Studio.sel.b - 0.2), Studio.sel.b);
+    else Studio.setSel(Studio.sel.a, Math.max(t, Studio.sel.a + 0.2));
+    e.target.blur();
+  });
+  $(id).addEventListener("keydown", e => { if (e.key === "Enter") e.target.blur(); });
+}
+$("#fIn").addEventListener("change", e => { Studio.fadeIn = clamp(+e.target.value || 0, 0, 10); Studio.draw(); });
+$("#fOut").addEventListener("change", e => { Studio.fadeOut = clamp(+e.target.value || 0, 0, 10); Studio.draw(); });
+$("#gain").addEventListener("input", e => { Studio.gainDb = +e.target.value; $("#gainV").textContent = (Studio.gainDb > 0 ? "+" : "") + Studio.gainDb + " dB"; Studio.applyVolume(); });
+$("#clipName").addEventListener("input", () => Studio._nameEdited = true);
+$("#exDl").addEventListener("click", () => {
+  if (!Studio.buf) return;
+  const url = URL.createObjectURL(Studio.renderWav()), a = document.createElement("a");
+  a.href = url; a.download = Studio.clipFileName(); document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+  toast("已下载 " + Studio.clipFileName());
+});
+$("#exSave").addEventListener("click", async () => {
+  if (!Studio.buf) return;
+  const f = await Studio.saveToLibrary(); if (f) { toast("已保存到曲库:" + f); Studio._nameEdited = false; }
+});
+$("#exUse").addEventListener("click", async () => {
+  if (!Studio.buf) return;
+  const key = $("#exEv").value, f = await Studio.saveToLibrary(); if (!f) return;
+  const c = C.events[key];
+  Object.assign(c, {file: f, start: 0, duration: 0, enabled: true, fade_in: Math.min(+c.fade_in || 0, 0.05)});
+  Studio._nameEdited = false;
+  renderKit(); save(`已保存「${f}」并用于「${META[key].name}」`);
+});
+
+// ---------- 曲库
+function renderLibList(){
+  const ul = $("#libList");
+  if (!LIB.length) { ul.innerHTML = `<li class="dim" style="cursor:default">曲库是空的。把歌拖到上面导入。</li>`; return; }
+  ul.innerHTML = LIB.map(f => `<li tabindex="0" data-file="${esc(f.file)}" class="${f.file === Studio.file ? "cur" : ""}">
+    <span class="nm" title="${esc(f.file)}">${esc(f.file)}</span>${/ 片段 /.test(f.file) ? '<span class="clipmark">片段</span>' : ""}
+    <span class="du">${durCache[f.file] ? fmt(durCache[f.file]).replace(/\.\d$/, "") : ""}</span>
+    <button class="ico" data-del="${esc(f.file)}" title="删除" aria-label="删除 ${esc(f.file)}">${ICON.trash}</button></li>`).join("");
+  loadDurations();
+}
+const durCache = {};
+let durBusy = false;
+function loadDurations(){
+  if (durBusy) return;
+  const f = LIB.find(x => durCache[x.file] == null);
+  if (!f) return;
+  durBusy = true;
+  const a = new Audio(); a.preload = "metadata";
+  const done = d => { durCache[f.file] = d || 0; durBusy = false; const li = $(`#libList li[data-file="${CSS.escape(f.file)}"] .du`); if (li && d) li.textContent = fmt(d).replace(/\.\d$/, ""); loadDurations(); };
+  a.onloadedmetadata = () => done(a.duration); a.onerror = () => done(0);
+  a.src = musicURL(f.file);
+}
+$("#libList").addEventListener("click", async e => {
+  const del = e.target.closest("[data-del]")?.dataset.del;
+  if (del) {
+    e.stopPropagation();
+    if (!confirm(`删除「${del}」?用到它的站点会被清空。`)) return;
+    await api("/api/delete", {file: del});
+    if (Studio.file === del) { Studio.stop(); Studio.file = null; Studio.buf = null; $("#deckBody").hidden = true; $("#deckEmpty").hidden = false; }
+    await refresh(true); toast("已删除 " + del); return;
+  }
+  const li = e.target.closest("li[data-file]"); if (li) Studio.open(li.dataset.file, null, Studio.target);
+});
+$("#libList").addEventListener("keydown", e => { if (e.key === "Enter" && e.target.dataset.file) Studio.open(e.target.dataset.file, null, Studio.target); });
+async function upload(files){
+  for (const f of files) {
+    toast(`正在导入 ${f.name}…`);
+    const r = await fetch("/api/upload", {method: "POST", headers: {"X-MusicBox": "1", "X-Filename": encodeURIComponent(f.name)}, body: f}).then(r => r.json());
+    toast(r.ok ? `已导入 ${r.file}` : `${f.name}:${r.error}`, !r.ok);
+  }
+  await refresh();
+}
+const drop = $("#drop");
+drop.addEventListener("click", () => $("#file").click());
+drop.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); $("#file").click(); } });
+$("#file").addEventListener("change", e => { upload([...e.target.files]); e.target.value = ""; });
+["dragenter", "dragover"].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.add("over"); }));
+["dragleave", "drop"].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.remove("over"); }));
+drop.addEventListener("drop", e => upload([...e.dataTransfer.files]));
+
+// =============================================================== AI 推荐
+let AI = null, aiSel = new Set(), aiKnown = new Set(), aiHL = null, aiPoll = null;
+function renderAiFiles(){
+  const files = LIB.map(f => f.file);
+  files.forEach(f => { if (!aiKnown.has(f)) { aiKnown.add(f); if (!/ 片段 /.test(f)) aiSel.add(f); } });
+  [...aiSel].forEach(f => { if (!files.includes(f)) aiSel.delete(f); });
+  $("#aiFiles").innerHTML = files.length
+    ? files.map(f => `<label><input type="checkbox" data-aif="${esc(f)}" ${aiSel.has(f) ? "checked" : ""}>${esc(f)}</label>`).join("")
+    : `<span class="hint">曲库是空的,先去剪辑台导入几首歌。</span>`;
+}
+$("#aiFiles").addEventListener("change", e => { const f = e.target.dataset.aif; if (f) e.target.checked ? aiSel.add(f) : aiSel.delete(f); });
+$("#aiRun").addEventListener("click", async () => {
+  if (!aiSel.size) return toast("至少勾选一首歌", true);
+  const durations = Object.fromEntries(Object.entries(C.events).map(([k, c]) => [k, c.duration]));
+  const r = await api("/api/analyze", {files: [...aiSel], durations});
+  if (!r.ok) return toast(r.error, true);
+  pollAi();
+});
+async function pollAi(){
+  clearTimeout(aiPoll);
+  try { AI = await api("/api/analysis"); } catch { return; }
+  renderAi();
+  if (AI.status === "running") aiPoll = setTimeout(pollAi, 700);
+}
+function renderAi(){
+  const run = AI && AI.status === "running";
+  $("#aiRun").disabled = run;
+  $("#aiRun").textContent = run ? "分析中…" : (AI && AI.reco ? "重新分析" : "开始分析");
+  $("#aiProg").innerHTML = !AI || AI.status === "idle" ? "" :
+    AI.error ? `<span class="warn">${esc(AI.error)}</span>` : esc(AI.progress) + (run ? "(第一次会慢一些)" : "");
+  $("#aiApplyAll").hidden = !(AI && AI.reco) || run;
+  if (run) return;
+  if (!AI || !AI.reco) { $("#aiOut").innerHTML = ""; return; }
+  const legend = `<div class="legend">${["前奏", "主歌", "铺垫", "高潮", "间奏"].map(k =>
+      `<span><i style="background:${SEC_COLORS[k]}"></i>${k}${k === "前奏" ? " / 尾奏" : ""}</span>`).join("")}
+    <span>白线是能量曲线</span><span><i style="background:var(--signal)"></i>已推荐的位置</span><span>点击曲线在剪辑台打开这个位置</span></div>`;
+  const tls = AI.songs.map((s, i) => `<div class="tl"><div class="tlh"><b>${esc(s.file)}</b>
+      <span class="dim">${fmt(s.duration).replace(/\.\d$/, "")}</span><span class="dim">${s.has_beat ? Math.round(s.tempo) + " BPM" : "节拍不明显"}</span><span class="dim">${esc(s.key)}</span></div>
+      <canvas data-song="${i}"></canvas></div>`).join("");
+  const failed = (AI.failed || []).map(f => `<div class="hint warn">${esc(f.file)}:${esc(f.error)}</div>`).join("");
+  const cand = (ev, x, i) => `<div class="cand" data-ev="${ev}" data-i="${i}">
+      <span class="score" title="匹配度"><i><b style="width:${x.score}%"></b></i>${x.score}</span>
+      <span class="where"><b>${esc(x.file)}</b> ${fmt(x.start)} – ${fmt(x.start + x.duration)}${x.loop ? "(循环)" : ""}</span>
+      <span class="acts"><button class="ico" data-aact="play" title="试听" aria-label="试听">${ICON.play}</button>
+      <button class="ico" data-aact="cut" title="在剪辑台打开" aria-label="在剪辑台打开">${ICON.cut}</button>
+      <button class="btn" data-aact="use">采用</button></span>
+      <span class="why">${x.reasons.map(esc).join(",")}</span></div>`;
+  const rows = S.meta.map(m => {
+    const c = AI.reco[m.key] || []; if (!c.length) return "";
+    const lane = LANE_OF[m.key];
+    const more = c.length > 1 ? `<details><summary>另外 ${c.length - 1} 个候选</summary>${c.slice(1).map((x, i) => cand(m.key, x, i + 1)).join("")}</details>` : "";
+    return `<div class="reco lane-${lane.id}"><div class="rn">${esc(m.name)}</div><div>${cand(m.key, c[0], 0)}${more}</div></div>`;
+  }).join("");
+  $("#aiOut").innerHTML = legend + tls + failed + `<div style="margin-top:8px">${rows}</div>`;
+  drawTimelines();
+}
+function drawTimelines(){
+  if (!AI || !AI.songs || $("#page-ai").hidden) return;
+  $$("#aiOut canvas[data-song]").forEach(cv => {
+    const s = AI.songs[+cv.dataset.song];
+    const dpr = window.devicePixelRatio || 1, W = cv.clientWidth, H = cv.clientHeight;
+    if (!W) return;
+    cv.width = W * dpr; cv.height = H * dpr;
+    const g = cv.getContext("2d"); g.scale(dpr, dpr);
+    const x = t => t / s.duration * W;
+    g.font = "11px " + getComputedStyle(document.body).fontFamily;
+    s.sections.forEach(sec => {
+      const x0 = x(sec.start), w = x(sec.end) - x0;
+      g.fillStyle = SEC_COLORS[sec.label] || "#3d4450"; g.fillRect(x0, 0, w, H);
+      g.fillStyle = "rgba(0,0,0,.4)"; g.fillRect(x0, 0, 1, H);
+      if (w > 30) { g.fillStyle = "rgba(236,232,223,.85)"; g.fillText(sec.label, x0 + 4, 13); }
+    });
+    Object.values(AI.reco).forEach(c => { const p = c[0]; if (p && p.file === s.file) { g.fillStyle = "#f2a541"; g.fillRect(x(p.start), H - 5, Math.max(2, x(p.start + p.duration) - x(p.start)), 3); } });
+    if (aiHL && aiHL.file === s.file) {
+      const x0 = x(aiHL.start), w = x(aiHL.start + aiHL.duration) - x0;
+      g.fillStyle = "rgba(255,207,122,.25)"; g.fillRect(x0, 0, w, H);
+      g.strokeStyle = "#ffcf7a"; g.lineWidth = 1.5; g.strokeRect(x0 + .75, .75, Math.max(1, w - 1.5), H - 1.5);
+    }
+    g.beginPath();
+    s.envelope.forEach((v, i) => { const px = x(i * s.env_dt), py = H - 8 - v * (H - 24); i ? g.lineTo(px, py) : g.moveTo(px, py); });
+    g.strokeStyle = "rgba(236,232,223,.9)"; g.lineWidth = 1.2; g.stroke();
+  });
+}
+window.addEventListener("resize", drawTimelines);
+function applyCand(ev, x){
+  Object.assign(C.events[ev], {file: x.file, start: x.start, duration: x.duration, enabled: true});
+  if (x.loop) C.events[ev].loop = true;
+}
+$("#aiOut").addEventListener("click", e => {
+  const cv = e.target.closest("canvas[data-song]");
+  if (cv) {
+    const s = AI.songs[+cv.dataset.song], r = cv.getBoundingClientRect(), t = (e.clientX - r.left) / r.width * s.duration;
+    location.hash = "#studio"; Studio.open(s.file, {a: t, b: t + 10}, null); return;
+  }
+  const b = e.target.closest("[data-aact]"); if (!b) return;
+  const el = b.closest(".cand"), ev = el.dataset.ev, x = AI.reco[ev][+el.dataset.i];
+  if (b.dataset.aact === "play") Pv.play({...C.events[ev], file: x.file, start: x.start, duration: x.duration, loop: false}, META[ev].name + "(候选)");
+  else if (b.dataset.aact === "cut") { location.hash = "#studio"; Studio.open(x.file, {a: x.start, b: x.start + x.duration}, ev); }
+  else { applyCand(ev, x); renderKit(); save(`已用于「${META[ev].name}」`); b.textContent = "已采用"; }
+});
+$("#aiOut").addEventListener("mouseover", e => {
+  const el = e.target.closest(".cand");
+  const x = el ? AI.reco[el.dataset.ev][+el.dataset.i] : null;
+  if (x !== aiHL) { aiHL = x; drawTimelines(); }
+});
+$("#aiApplyAll").addEventListener("click", () => {
+  Object.entries(AI.reco).forEach(([ev, c]) => c[0] && applyCand(ev, c[0]));
+  renderKit(); save("已把每个站点换成第一推荐");
+});
+
+// =============================================================== 设置
+const TIMING = [
+  ["competitive", "竞技 回合时长(秒)"], ["casual", "休闲 回合时长(秒)"], ["scrimcomp2v2", "搭档 回合时长(秒)"],
+  ["default", "其他模式 回合时长(秒)"],
+];
+function renderSettings(){
+  $("#timing").innerHTML = TIMING.map(([k, n]) => `<label>${n}<input type="number" data-rt="${k}" min="0" value="${C.round_time[k] ?? ""}"></label>`).join("") +
+    `<label>炸弹倒计时(秒)<input type="number" data-k="bomb_time" min="10" value="${C.bomb_time}"></label>
+     <label>提前提示(秒)<input type="number" data-k="warning_lead" min="0" value="${C.warning_lead}"></label>
+     <label>延迟补偿(秒)<input type="number" data-k="latency_comp" min="0" step="0.1" value="${C.latency_comp}"></label>`;
+  $("#cfgdir").value = C.cs2_cfg_dir || "";
+}
+$("#timing").addEventListener("change", e => {
+  const t = e.target;
+  if (t.dataset.rt) C.round_time[t.dataset.rt] = Math.max(0, +t.value || 0);
+  if (t.dataset.k) C[t.dataset.k] = Math.max(0, +t.value || 0);
+  save();
+});
+$("#cfgdir").addEventListener("change", e => { C.cs2_cfg_dir = e.target.value.trim(); save(); });
+$("#installBtn").addEventListener("click", async () => {
+  const r = await api("/api/install_cfg", {cs2_cfg_dir: $("#cfgdir").value.trim()});
+  toast(r.ok ? (r.changed ? "已写入,重启 CS2 后生效" : "配置已经是最新的") : r.error, !r.ok);
+  refresh();
+});
+function renderCfgStatus(){
+  const cs = S.cfg_status || {};
+  $("#cfgstat").innerHTML = cs.ok
+    ? `已写入:<code>${esc(cs.gsi_path)}</code>${cs.changed ? "<br><b>刚写入,需要重启 CS2 才生效。</b>" : ""}`
+    : `<span class="warn">${esc(cs.error || "还没有写入")}</span>`;
+  const pr = S.proc || {};
+  $("#procstat").innerHTML = pr.available === false
+    ? `<span class="warn">游戏进程检测不可用:没有安装 psutil。退出游戏后最多要等 35 秒音乐才会停。在程序文件夹运行 <code>pip install psutil</code> 后重启程序即可。</span>`
+    : pr.running ? `游戏进程检测:CS2 正在运行(进程 ${pr.pid})。` + (pr.needs_restart ? `<br><b class="warn">GSI 配置是在这次 CS2 启动之后写入的,重启一次 CS2 才能收到数据。</b>` : "")
+    : pr.running === false ? "游戏进程检测:CS2 没有运行。启动后会自动发现,退出后一秒内停止音乐。" : "";
+  const log = $("#log"), atBottom = log.scrollTop + log.clientHeight >= log.scrollHeight - 4;
+  log.textContent = S.logs.join("\n"); if (atBottom) log.scrollTop = log.scrollHeight;
+}
+
+
+// =============================================================== 社区
+const timeAgo = ts => {
+  const d = Date.now() / 1000 - ts;
+  if (d < 60) return "刚刚";
+  if (d < 3600) return Math.floor(d / 60) + " 分钟前";
+  if (d < 86400) return Math.floor(d / 3600) + " 小时前";
+  if (d < 86400 * 30) return Math.floor(d / 86400) + " 天前";
+  return new Date(ts * 1000).toLocaleDateString("zh-CN");
+};
+const LANE_COLOR = {lobby: "var(--lobby)", round: "var(--ct)", bomb: "var(--fuse)", final: "var(--finale)"};
+const EVENT_ORDER = LANES.flatMap(l => l.rows.flat().sort((a, b) => a[1] - b[1]).map(([k]) => k));
+function miniMap(stations){
+  const set = new Set(stations);
+  let row = 0, dots = "";
+  for (const lane of LANES) {
+    lane.rows.forEach((r, ri) => r.forEach(([k, col]) => {
+      const x = 6 + (col - 1) * 13, y = 6 + (row + ri) * 11, c = LANE_COLOR[lane.id];
+      dots += set.has(k) ? `<circle cx="${x}" cy="${y}" r="4" fill="${c}"/>`
+                         : `<circle cx="${x}" cy="${y}" r="3.2" fill="none" stroke="${c}" stroke-opacity=".45" stroke-width="1.2"/>`;
+    }));
+    row += lane.rows.length;
+  }
+  return `<svg class="mini" width="78" height="56" viewBox="0 0 78 56" role="img" aria-label="包含 ${stations.length} 个站点">${dots}</svg>`;
+}
+const Cm = {
+  st: null, kits: [], sort: "new", q: "", page: 1, more: false, detail: null, mapping: {}, authMode: "login", inited: false,
+  async init(){ this.inited = true; await this.loadState(); },
+  async loadState(){
+    let r; try { r = await api("/api/cm/state", {}); } catch { return; }
+    this.st = r;
+    if (document.activeElement !== $("#cmUrl1")) $("#cmUrl1").value = r.url || "";
+    if (document.activeElement !== $("#cmUrl2")) $("#cmUrl2").value = r.url || "";
+    const local = /^http:\/\/(localhost|127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(r.url || "");
+    $("#cmUrlStat").innerHTML = !r.url ? "还没有设置" : esc("已连接:" + r.url) +
+      (r.url.startsWith("http://") && !local ? `<br><span class="warn">这个地址没有加密(http),登录密码会以明文传输。公开的服务器请用 https。</span>` : "");
+    $("#cmSetup").hidden = !!r.url; $("#cmMain").hidden = !r.url;
+    this.renderAcct();
+    if (r.url) this.refresh();
+  },
+  // 免费服务器(如 Render 免费版)闲置后会休眠,第一次访问要等它醒来,期间给出说明
+  async refresh(){
+    const el = $("#cmKits");
+    if (!this.kits.length) el.innerHTML = `<div class="empty-cm">正在连接社区服务器…</div>`;
+    const slow = setTimeout(() => {
+      el.innerHTML = `<div class="empty-cm" role="status"><span class="spin" aria-hidden="true"></span>社区服务器正在唤醒…<br>
+        <span class="hint">免费服务器闲置一段时间后会休眠,唤醒大约要 1 分钟,请稍等。</span></div>`;
+      $("#cmMore").hidden = true;
+    }, 2500);
+    const w = await api("/api/cm/wake", {});
+    clearTimeout(slow);
+    if (!w.ok) { el.innerHTML = `<div class="empty-cm warn">${esc(w.error)}</div>`; $("#cmMore").hidden = true; return; }
+    this.list(true); this.checkUndo();
+  },
+  async connect(url){
+    const btns = [$("#cmConnect1"), $("#cmConnect2")];
+    btns.forEach(b => b.disabled = true);
+    const slow = setTimeout(() => toast("正在连接…如果是免费服务器,唤醒可能要 1 分钟"), 2500);
+    const r = await api("/api/cm/url", {url});
+    clearTimeout(slow);
+    btns.forEach(b => b.disabled = false);
+    if (!r.ok) return toast(r.error, true);
+    toast(r.url ? `已连接,社区里有 ${r.health.kits} 套音乐盒` : "已清除服务器地址");
+    if (r.warning) setTimeout(() => toast(r.warning, true), 2600);
+    await this.loadState();
+  },
+  renderAcct(){
+    const el = $("#cmAcct"), u = this.st && this.st.user;
+    if (u) {
+      el.innerHTML = `<h2>已登录</h2><p style="margin:0"><b>${esc(u.name)}</b></p><p class="hint" style="margin:0 0 12px">${esc(u.email)}</p>
+        <button class="btn ghost" id="cmLogout">退出登录</button>`;
+      $("#cmLogout").onclick = async () => { await api("/api/cm/logout", {}); toast("已退出登录"); this.loadState(); };
+      return;
+    }
+    const reg = this.authMode === "register";
+    el.innerHTML = `<h2>${reg ? "注册" : "登录"}</h2>
+      <div class="seg wide" role="group" aria-label="登录或注册" style="margin-bottom:12px">
+        <button data-m="login" aria-pressed="${!reg}">登录</button><button data-m="register" aria-pressed="${reg}">注册</button></div>
+      <form id="cmAuth">
+        <label class="field"><span>邮箱</span><input type="email" name="email" required autocomplete="email"></label>
+        ${reg ? `<label class="field"><span>昵称(别人看到的名字)</span><input type="text" name="name" required minlength="2" maxlength="20"></label>` : ""}
+        <label class="field"><span>密码${reg ? "(至少 8 位)" : ""}</span><input type="password" name="password" required ${reg ? 'minlength="8" autocomplete="new-password"' : 'autocomplete="current-password"'}></label>
+        <button class="btn primary" type="submit">${reg ? "注册并登录" : "登录"}</button>
+        ${reg ? `<p class="hint" style="margin:0">注册后直接就能用,不需要验证邮箱。请记住密码:目前没有找回密码的功能。</p>` : ""}
+      </form>`;
+    el.querySelectorAll("[data-m]").forEach(b => b.onclick = () => { this.authMode = b.dataset.m; this.renderAcct(); });
+    $("#cmAuth").onsubmit = async e => {
+      e.preventDefault();
+      const f = new FormData(e.target), btn = e.target.querySelector("[type=submit]");
+      btn.disabled = true;
+      const r = await api("/api/cm/auth", {mode: this.authMode, email: f.get("email"), password: f.get("password"), name: f.get("name")});
+      btn.disabled = false;
+      if (!r.ok) return toast(r.error, true);
+      toast(`欢迎,${r.user.name}`);
+      this.loadState();
+    };
+  },
+  async list(reset){
+    if (reset) { this.page = 1; this.kits = []; }
+    const mine = this.sort === "mine";
+    if (mine && !(this.st && this.st.user)) {
+      $("#cmKits").innerHTML = `<div class="empty-cm">登录后才能看到你分享过的音乐盒。</div>`; $("#cmMore").hidden = true; return;
+    }
+    const r = await api("/api/cm/list", {sort: mine ? "new" : this.sort, q: this.q, page: this.page, mine});
+    if (!r.ok) { $("#cmKits").innerHTML = `<div class="empty-cm warn">${esc(r.error)}</div>`; $("#cmMore").hidden = true; return; }
+    this.kits = this.kits.concat(r.kits); this.more = r.has_more;
+    this.renderKits();
+  },
+  renderKits(){
+    const el = $("#cmKits");
+    if (!this.kits.length) {
+      el.innerHTML = `<div class="empty-cm">${this.q ? "没有找到匹配的音乐盒。" : this.sort === "mine" ? "你还没有分享过音乐盒。点右边的「分享当前音乐盒」。" : "社区里还没有音乐盒,来分享第一套吧。"}</div>`;
+    } else {
+      const cur = this.detail && this.detail.kit.id;
+      el.innerHTML = this.kits.map(k => `<article class="kit${k.id === cur ? " cur" : ""}" data-kit="${k.id}" tabindex="0" role="button" aria-label="${esc(k.title)}">
+        <div><h3>${esc(k.title)}</h3><div class="by">${esc(k.author)} 分享于 ${timeAgo(k.created)}</div></div>
+        ${miniMap(k.stations)}
+        <div class="songs">${k.songs.map(s => esc(s.artist ? `${s.title}(${s.artist})` : s.title)).join(",")}</div>
+        <div class="foot">${k.tags.map(t => `<span class="chip">${esc(t)}</span>`).join("")}
+          <span class="${k.liked ? "liked" : ""}">♥ ${k.likes}</span><span>导入 ${k.downloads} 次</span><span>${k.stations.length} 个站点</span></div>
+      </article>`).join("");
+    }
+    $("#cmMore").hidden = !this.more;
+  },
+  openSheet(kicker, title, sub){
+    closeDrawer();
+    $("#shKicker").textContent = kicker; $("#shTitle").textContent = title; $("#shSub").innerHTML = sub || "";
+    const sh = $("#sheet"); sh.classList.add("open"); sh.setAttribute("aria-hidden", "false");
+  },
+  closeSheet(){
+    const sh = $("#sheet"); if (!sh.classList.contains("open")) return false;
+    sh.classList.remove("open"); sh.setAttribute("aria-hidden", "true");
+    this.detail = null; this.renderKits(); return true;
+  },
+  async open(id){
+    this.openSheet("音乐盒", "正在读取…", "");
+    $("#shBody").innerHTML = `<p class="hint">正在你的曲库里找对应的歌(第一次需要分析歌曲,会慢几秒)…</p>`;
+    const r = await api("/api/cm/kit", {id});
+    if (!r.ok) { $("#shBody").innerHTML = `<p class="warn">${esc(r.error)}</p>`; return; }
+    this.detail = r; this.mapping = {};
+    for (const s of r.kit.data.songs) { const m = r.matches[s.id]; this.mapping[s.id] = {file: m.file || "", offset: m.offset || 0}; }
+    this.renderDetail(); this.renderKits();
+  },
+  renderDetail(){
+    const {kit, matches, library} = this.detail, d = kit.data;
+    $("#shKicker").textContent = `${kit.author} 分享于 ${timeAgo(kit.created)}`;
+    $("#shTitle").textContent = kit.title;
+    $("#shSub").innerHTML = (kit.tags || []).map(t => `<span class="chip">${esc(t)}</span>`).join(" ");
+    const songOf = id => d.songs.find(x => x.id === id) || {title: "?"};
+    const opts = f => ['<option value="">(不导入这首)</option>'].concat(library.map(x => `<option value="${esc(x)}"${x === f ? " selected" : ""}>${esc(x)}</option>`)).join("");
+    const rows = d.songs.map(s => {
+      const m = matches[s.id], cur = this.mapping[s.id];
+      const status = !cur.file ? `<span class="st no">你的曲库里没找到这首</span>`
+        : cur.file === m.file && m.method ? `<span class="st okk">已找到(${m.method === "指纹" ? "按声音指纹" : "按歌名"})</span>` : `<span class="st">手动指定</span>`;
+      return `<div class="maprow"><div><b>${esc(s.title)}</b>${s.artist ? ` <span class="dim">${esc(s.artist)}</span>` : ""}<br>
+          <span class="hint">${fmt(s.duration).replace(/\.\d$/, "")}</span> ${status}</div>
+        <div><select data-map="${s.id}" aria-label="${esc(s.title)} 对应的本地文件">${opts(cur.file)}</select>
+          <div class="off" style="margin-top:6px">时间偏移 <input type="number" step="0.01" data-off="${s.id}" value="${cur.offset}" aria-label="时间偏移(秒)"> 秒
+          ${m.method === "指纹" && cur.file === m.file ? `<span class="hint">已自动对齐</span>` : ""}</div></div></div>`;
+    }).join("");
+    const st = EVENT_ORDER.filter(k => d.events[k]).map(k => {
+      const e = d.events[k], m = this.mapping[e.song] || {};
+      return `<div class="r lane-${LANE_OF[k].id}"><b>${esc(META[k].name)}</b>
+        <span class="w">${esc(songOf(e.song).title)} ${fmt(e.start)} – ${e.duration > 0 ? fmt(e.start + e.duration) : "结尾"}${e.loop ? "(循环)" : ""}${e.enabled ? "" : "(停用)"}</span>
+        <button class="ico" data-pv="${k}" ${m.file ? "" : "disabled"} title="用你的歌试听" aria-label="试听 ${esc(META[k].name)}">${ICON.play}</button></div>`;
+    }).join("");
+    const admin = !!(this.st && this.st.user && this.st.user.admin);
+    const own = kit.mine ? `<button class="btn" id="shUpdate">用当前音乐盒更新它</button><button class="btn danger" id="shDel">删除</button>`
+      : `<button class="btn ghost" id="shReport">举报</button>${admin ? `<button class="btn danger" id="shDel">删除(管理员)</button>` : ""}`;
+    const found = Object.values(this.mapping).filter(m => m.file).length;
+    $("#shBody").innerHTML = `${kit.description ? `<p style="margin:0">${esc(kit.description)}</p>` : ""}
+      <div><h3>需要的歌(找到 ${found} / ${d.songs.length} 首)</h3>
+        <p class="hint" style="margin:0 0 4px">在你的曲库里找同一首歌:文件名不同、版本前后多几秒都没关系。找不到的可以手动选,或者先去剪辑台导入这首歌。</p>${rows}</div>
+      <div><h3>站点</h3><div class="stlist">${st}</div></div>
+      <div class="row"><input type="checkbox" id="shReplace"><label for="shReplace">同时清空这套里没有的站点</label></div>
+      <div class="row"><button class="btn primary" id="shImport" ${found ? "" : "disabled"}>导入到我的音乐盒</button>
+        <button class="btn" id="shLike" aria-pressed="${kit.liked}">${kit.liked ? "♥ 已点赞" : "♡ 点赞"} ${kit.likes}</button>${own}</div>`;
+    const body = $("#shBody");
+    body.querySelectorAll("[data-map]").forEach(sel => sel.onchange = () => {
+      const id = sel.dataset.map, m = matches[id];
+      this.mapping[id] = {file: sel.value, offset: sel.value && sel.value === m.file ? m.offset : 0};
+      this.renderDetail();
+    });
+    body.querySelectorAll("[data-off]").forEach(inp => inp.onchange = () => { this.mapping[inp.dataset.off].offset = +inp.value || 0; });
+    body.querySelectorAll("[data-pv]").forEach(b => b.onclick = () => {
+      const k = b.dataset.pv, e = d.events[k], m = this.mapping[e.song];
+      Pv.play({...e, file: m.file, start: Math.max(0, e.start + m.offset), loop: false}, META[k].name + "(导入前试听)");
+    });
+    $("#shImport").onclick = () => this.doImport();
+    $("#shLike").onclick = async () => {
+      const r = await api("/api/cm/like", {id: kit.id});
+      if (!r.ok) return toast(r.error, true);
+      kit.liked = r.liked; kit.likes = r.likes;
+      const li = this.kits.find(k => k.id === kit.id); if (li) { li.liked = r.liked; li.likes = r.likes; }
+      this.renderDetail(); this.renderKits();
+    };
+    if (kit.mine) $("#shUpdate").onclick = () => this.share(kit);
+    if ($("#shDel")) {
+      $("#shDel").onclick = async () => {
+        if (!confirm(`删除「${kit.title}」?删除后别人就看不到了。`)) return;
+        const r = await api("/api/cm/delete", {id: kit.id});
+        if (!r.ok) return toast(r.error, true);
+        toast("已删除"); this.closeSheet(); this.list(true);
+      };
+    }
+    if ($("#shReport")) {
+      $("#shReport").onclick = async () => {
+        const reason = prompt("举报原因(例如:标题不当、刷屏、冒充他人)");
+        if (!reason || reason.trim().length < 2) return;
+        const r = await api("/api/cm/report", {id: kit.id, reason});
+        toast(r.ok ? "已提交举报,谢谢" : r.error, !r.ok);
+      };
+    }
+  },
+  async doImport(){
+    const kit = this.detail.kit;
+    const r = await api("/api/cm/import", {id: kit.id, mapping: this.mapping, replace: $("#shReplace").checked});
+    if (!r.ok) return toast(r.error, true);
+    C = JSON.parse(JSON.stringify(r.config)); renderKit();
+    toast(`已导入 ${r.applied.length} 个站点` + (r.skipped.length ? `,${r.skipped.length} 个因为缺歌没导入` : ""));
+    this.closeSheet(); this.checkUndo();
+  },
+  async checkUndo(){
+    const r = await api("/api/cm/backup", {});
+    const el = $("#cmUndo");
+    if (!r.ok || !r.backup) { el.hidden = true; return; }
+    el.hidden = false;
+    el.innerHTML = `<span>刚导入了「<b>${esc(r.backup.kit)}</b>」(${timeAgo(r.backup.time)})。</span>
+      <a class="btn ghost" href="#kit">查看音乐盒</a><button class="btn" id="cmUndoBtn">撤销导入</button>`;
+    $("#cmUndoBtn").onclick = async () => {
+      const u = await api("/api/cm/undo", {});
+      if (!u.ok) return toast(u.error, true);
+      C = JSON.parse(JSON.stringify(u.config)); renderKit(); el.hidden = true; toast("已恢复到导入之前");
+    };
+  },
+  async share(updateKit){
+    if (!(this.st && this.st.user)) { toast("先登录才能分享", true); const i = $("#cmAcct input"); if (i) i.focus(); return; }
+    this.openSheet(updateKit ? "更新已分享的音乐盒" : "分享音乐盒", updateKit ? updateKit.title : "分享当前音乐盒", "");
+    $("#shBody").innerHTML = `<p class="hint">正在整理你的音乐盒并生成声音指纹(第一次需要分析歌曲,会慢几秒)…</p>`;
+    const r = await api("/api/cm/prepare", {});
+    if (!r.ok) { $("#shBody").innerHTML = `<p class="warn">${esc(r.error)}</p>`; return; }
+    const warn = r.warnings.length ? `<div class="warnbox">${r.warnings.map(w => esc(w.msg)).join("<br>")}</div>` : "";
+    const keys = EVENT_ORDER.filter(k => r.events[k]);
+    if (!keys.length) { $("#shBody").innerHTML = `<p>还没有可以分享的站点。先在音乐盒里给站点配上音乐。</p>${warn}`; return; }
+    const songName = id => (r.songs.find(s => s.id === id) || {}).title || "?";
+    $("#shBody").innerHTML = `
+      <label class="field"><span>标题</span><input type="text" id="shT" maxlength="40" value="${esc(updateKit ? updateKit.title : "")}" placeholder="例如:EDM 高燃套装"></label>
+      <label class="field"><span>简介(可选)</span><textarea id="shD" rows="3" maxlength="500" placeholder="风格、适合什么样的玩家…">${esc(updateKit ? updateKit.description : "")}</textarea></label>
+      <label class="field"><span>标签(可选,用逗号分开,最多 5 个)</span><input type="text" id="shG" value="${esc(updateKit ? (updateKit.tags || []).join(",") : "")}" placeholder="EDM,燃,中文"></label>
+      <div><h3>歌曲信息</h3><p class="hint" style="margin:0 0 4px">别人靠歌名找歌,也靠声音指纹自动认歌。歌名写准一点,别人更容易找到这首歌。</p>
+        ${r.songs.map(s => `<div class="maprow"><div><span class="dim" style="overflow-wrap:anywhere">${esc(s.file)}</span><br>
+          <span class="hint">${fmt(s.duration).replace(/\.\d$/, "")}${s.has_fp ? "" : "(没有指纹,别人只能按歌名匹配)"}</span></div>
+          <div class="grid2"><label class="field"><span>歌名</span><input type="text" data-t="${esc(s.file)}" value="${esc(s.title)}" maxlength="80"></label>
+          <label class="field"><span>歌手</span><input type="text" data-a="${esc(s.file)}" value="${esc(s.artist)}" maxlength="60"></label></div></div>`).join("")}</div>
+      <div><h3>会分享的站点(${keys.length} 个)</h3><div class="stlist">${keys.map(k => { const e = r.events[k];
+        return `<div class="r lane-${LANE_OF[k].id}"><b>${esc(META[k].name)}</b><span class="w">${esc(songName(e.song))} ${fmt(e.start)} – ${e.duration > 0 ? fmt(e.start + e.duration) : "结尾"}</span><span></span></div>`; }).join("")}</div></div>
+      ${warn}
+      <p class="hint" style="margin:0">只上传配方和声音指纹(一串响度数字,无法还原成音乐),不会上传任何音频文件。</p>
+      <div class="row"><button class="btn primary" id="shPub">${updateKit ? "更新" : "发布"}</button></div>`;
+    $("#shPub").onclick = async () => {
+      const title = $("#shT").value.trim();
+      if (!title) { toast("写个标题吧", true); $("#shT").focus(); return; }
+      const meta = {};
+      $$("#shBody [data-t]").forEach(i => meta[i.dataset.t] = {title: i.value.trim(), artist: ""});
+      $$("#shBody [data-a]").forEach(i => meta[i.dataset.a].artist = i.value.trim());
+      const tags = $("#shG").value.split(/[,,、\s]+/).map(t => t.trim()).filter(Boolean).slice(0, 5);
+      $("#shPub").disabled = true;
+      const p = await api("/api/cm/publish", {title, description: $("#shD").value.trim(), tags, meta, update_id: updateKit ? updateKit.id : null});
+      $("#shPub").disabled = false;
+      if (!p.ok) return toast(p.error, true);
+      toast(updateKit ? "已更新" : "已发布,大家现在能看到了");
+      this.sort = updateKit ? this.sort : "new";
+      $$("#cmSort button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.sort === this.sort)));
+      await this.list(true);
+      this.open(p.kit.id);
+    };
+  },
+};
+$("#cmKits").addEventListener("click", e => { const k = e.target.closest("[data-kit]"); if (k) Cm.open(+k.dataset.kit); });
+$("#cmKits").addEventListener("keydown", e => { if ((e.key === "Enter" || e.key === " ") && e.target.dataset.kit) { e.preventDefault(); Cm.open(+e.target.dataset.kit); } });
+$("#cmMore").addEventListener("click", () => { Cm.page++; Cm.list(false); });
+$("#cmSort").addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  Cm.sort = b.dataset.sort;
+  $$("#cmSort button").forEach(x => x.setAttribute("aria-pressed", String(x === b)));
+  Cm.list(true);
+});
+let cmQT = 0;
+$("#cmQ").addEventListener("input", e => { clearTimeout(cmQT); cmQT = setTimeout(() => { Cm.q = e.target.value.trim(); Cm.list(true); }, 300); });
+$("#cmShareBtn").addEventListener("click", () => Cm.share(null));
+$("#shClose").addEventListener("click", () => Cm.closeSheet());
+$("#cmConnect1").addEventListener("click", () => Cm.connect($("#cmUrl1").value));
+$("#cmConnect2").addEventListener("click", () => Cm.connect($("#cmUrl2").value));
+["#cmUrl1", "#cmUrl2"].forEach(id => $(id).addEventListener("keydown", e => { if (e.key === "Enter") Cm.connect(e.target.value); }));
+
+// =============================================================== 快捷键
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape") { if (drawerKey) closeDrawer(); else if (!Cm.closeSheet()) Bus.stopAll(); return; }
+  if (e.target.closest("input,select,textarea") || e.ctrlKey || e.metaKey || e.altKey) return;
+  if ($("#page-studio").hidden || !Studio.buf) return;
+  const k = e.key.toLowerCase();
+  if (k === " " && e.target.closest("button,a,[role=button],label")) return;
+  if (k === " ") { e.preventDefault(); Studio.togglePlay(); }
+  else if (k === "i") { const t = Studio.playPos() ?? Studio.cursor; Studio.setSel(Math.min(t, Studio.sel.b - 0.2), Studio.sel.b); }
+  else if (k === "o") { const t = Studio.playPos() ?? Studio.cursor; Studio.setSel(Studio.sel.a, Math.max(t, Studio.sel.a + 0.2)); }
+  else if (k === "l") $("#tLoop").click();
+});
+
+// =============================================================== 模拟一局(不开游戏试听整局)
+const Demo = {
+  running: false,
+  async toggle(){
+    if (this.running) { await api("/api/demo", {action: "stop"}); return; }
+    if (!Object.values((S.config || C).events).some(e => e.enabled && e.file)) toast("还没有站点配了音乐,模拟时会没有声音。先去音乐盒配几个站点", true);
+    if (Bus.owner) { Bus.owner.stop(); Bus.owner = null; }    // 先停掉网页里的试听
+    const r = await api("/api/demo", {action: "start"});
+    if (!r.ok) return toast(r.error, true);
+    toast("开始模拟一局,大约 1 分钟。留意右上角的事件提示");
+    this.running = true; this.paint();
+  },
+  sync(){
+    const d = S.demo || {};
+    if (d.running !== this.running) { this.running = !!d.running; this.paint(); }
+  },
+  paint(){
+    $$("[data-demo]").forEach(b => { b.textContent = this.running ? "停止模拟" : "模拟一局"; b.classList.toggle("on", this.running); });
+  },
+};
+document.addEventListener("click", e => { if (e.target.closest("[data-demo]")) Demo.toggle(); });
+
+// =============================================================== 新手教程
+const Guide = {
+  steps(){
+    const g = S.guide || {}, pr = S.proc || {}, cs = S.cfg_status || {}, game = S.game || {};
+    const evs = (S.config || C).events;                // 用服务器上的配置(AI 推荐、社区导入也会改它)
+    const lib = LIB.length, set = Object.values(evs).filter(e => e.enabled && e.file).length;
+    const d = S.demo || {};
+    const online = game.connected && !(d.running);
+    let cs2 = {done: g.cs2_ok || online, stat: "", cls: ""};
+    if (online) cs2.stat = "已经连上,正在收到游戏数据", cs2.cls = "ok";
+    else if (pr.running && pr.needs_restart) cs2.stat = "配置是在游戏开着的时候写进去的:关掉 CS2 再打开一次", cs2.cls = "warn";
+    else if (pr.running) cs2.stat = "CS2 正在启动,进到主菜单就会连上", cs2.cls = "run";
+    else if (!cs.ok) cs2.stat = "没找到 CS2 的安装位置。打开一次 CS2 程序会自动找到;或者去「设置」手动填 cfg 文件夹", cs2.cls = "warn";
+    else if (g.cs2_ok) cs2.stat = "以前已经连上过。打开 CS2 就会自动连接", cs2.cls = "ok";
+    else cs2.stat = "配置已经写好了。打开 CS2(如果它本来就开着,重启一次)", cs2.cls = "run";
+    const cm = Cm.st && Cm.st.url;
+    const vs = S.voice || {};
+    return [
+      {k: "lib", t: "导入你的歌", done: lib > 0,
+       p: "支持 mp3 / ogg / wav / flac。在剪辑台把歌拖进去就行,歌会存进程序旁边的 music 文件夹。",
+       stat: lib ? `曲库里有 ${lib} 首歌` : "曲库还是空的", cls: lib ? "ok" : "",
+       acts: `<a class="btn${lib ? "" : " primary"}" href="#studio">打开剪辑台导入</a>`},
+      {k: "kit", t: "给站点配上音乐", done: set > 0,
+       p: "音乐盒页上的每个站点对应游戏里的一个时刻:回合开始、下包、MVP、比赛胜利……可以在剪辑台截一段直接用到某个站点,也可以让 AI 推荐帮你挑段落。刚开始建议先配「主菜单」「回合开始」「MVP 主题曲」三个。",
+       stat: `已配置 ${set} / 13 个站点`, cls: set ? "ok" : "",
+       acts: `<a class="btn${set ? "" : " primary"}" href="#ai">让 AI 推荐</a><a class="btn ghost" href="#kit">打开音乐盒</a>`},
+      {k: "demo", t: "不开游戏,先听一局", done: g.demo_done,
+       p: "模拟一整局:主菜单 → 热身 → 回合开始 → 下包 → 拆包拿 MVP → 阵亡 → 比赛胜利,大约 1 分钟,听听各个站点衔接得怎么样。(「剩余 10 秒」这类倒计时要真实计时,模拟里不演示。)",
+       stat: d.running ? `正在模拟:${d.step}(${d.i}/${d.n})` : g.demo_done ? "已经模拟过一局" : (set ? "" : "先配几个站点,模拟时才有声音"),
+       cls: d.running ? "run" : g.demo_done ? "ok" : "",
+       acts: `<button class="btn${g.demo_done || d.running || !set ? "" : " primary"}" data-demo>${d.running ? "停止模拟" : "模拟一局"}</button>`},
+      {k: "cs2", t: "连接 CS2", done: cs2.done,
+       p: "程序会自动找到 CS2,写入游戏状态接口(GSI)的配置文件。写入后要重启一次 CS2 才生效。进到游戏主菜单,顶栏显示「主菜单」就说明连上了。这一步只需要做一次。",
+       stat: cs2.stat, cls: cs2.cls,
+       acts: cs.ok || cs2.done ? "" : `<a class="btn" href="#settings">去设置填路径</a>`},
+      {k: "mute", t: "关掉游戏自带的音乐", done: g.mute_done,
+       p: "不然游戏原来的音乐盒会和你的音乐一起响。进游戏后按 <kbd>~</kbd> 打开控制台(没反应的话:游戏设置 › 游戏 › 启用开发者控制台 选「是」),输入下面这行回车。它只把各类“音乐”的音量调成 0,枪声和脚步声不受影响。",
+       cmd: "exec musicbox_mute",
+       stat: "", cls: "",
+       acts: `<label class="row" style="gap:6px"><input type="checkbox" data-mute ${g.mute_done ? "checked" : ""}>我已经在游戏里输入过了</label>`},
+      {k: "cm", t: "社区:导入别人的音乐盒", opt: "可选", done: !!cm,
+       p: "从社区导入别人分享的音乐盒(用你自己电脑上的同一首歌,自动对齐时间),或者分享你的。需要先填一个社区服务器网址。",
+       stat: cm ? "已连接社区服务器" : "", cls: cm ? "ok" : "",
+       acts: `<a class="btn ghost" href="#community">打开社区</a>`},
+      {k: "voice", t: "队友语音:让队友也听到", opt: "可选 · 实验", done: vs.enabled && vs.status === "on",
+       p: "把你的麦克风和音乐混在一起送进游戏语音。这是实验性功能,需要你自己下载安装免费的虚拟声卡 VB-CABLE(程序不附带)。",
+       stat: vs.enabled ? (vs.status === "on" ? "已开启" : vs.status === "error" ? "出错了:" + vs.error : "") : "", cls: vs.status === "on" ? "ok" : vs.status === "error" ? "warn" : "",
+       acts: `<a class="btn ghost" href="#voice">了解一下</a>`},
+    ];
+  },
+  render(){
+    if (!S || !C) return;
+    const steps = this.steps(), req = steps.filter(x => !x.opt);
+    const cur = req.find(x => !x.done);
+    const done = req.filter(x => x.done).length;
+    const html = steps.map((x, i) => {
+      const cls = x.done ? "done" : x === cur ? "cur" : x.opt ? "opt" : "";
+      const chip = x.done ? "已完成" : x.opt ? x.opt : x === cur ? "下一步" : "待完成";
+      return `<li class="gst ${cls}" data-k="${x.k}"><span class="gpin"></span><div class="gcard">
+        <div class="ghead"><span class="gnum">${x.opt ? "附加" : "第 " + (i + 1) + " 步"}</span><h3>${x.t}</h3><span class="gchip">${chip}</span></div>
+        <p>${x.p}</p>
+        ${x.cmd ? `<div class="gcmd"><code>${x.cmd}</code><button class="btn ghost" data-copy="${x.cmd}">复制</button></div>` : ""}
+        ${x.stat ? `<div class="gstat ${x.cls}">${esc(x.stat)}</div>` : ""}
+        ${x.acts ? `<div class="gacts">${x.acts}</div>` : ""}</div></li>`;
+    }).join("");
+    if (html !== this.last) { $("#gSteps").innerHTML = html; this.last = html; Demo.paint(); }
+    $("#gCount").textContent = `${done} / ${req.length}`;
+    $("#gBar").style.width = (done / req.length * 100) + "%";
+    $("#gNext").textContent = cur ? `下一步:${cur.t}` : "必做的都完成了,开始玩吧!";
+    $("#gNoAuto").checked = !!(S.guide && S.guide.seen);
+  },
+  async set(patch){
+    const r = await api("/api/guide", patch);
+    if (r.ok) { S.guide = r.guide; this.render(); }
+  },
+};
+$("#gSteps").addEventListener("change", e => { if (e.target.matches("[data-mute]")) Guide.set({mute_done: e.target.checked}); });
+$("#gSteps").addEventListener("click", async e => {
+  const b = e.target.closest("[data-copy]"); if (!b) return;
+  try { await navigator.clipboard.writeText(b.dataset.copy); toast("已复制,进游戏后在控制台粘贴(Ctrl+V)"); }
+  catch { toast("复制失败,请手动输入:" + b.dataset.copy, true); }
+});
+$("#gNoAuto").addEventListener("change", e => Guide.set({seen: e.target.checked}));
+$("#gDone").addEventListener("click", async () => { await Guide.set({seen: true}); location.hash = "#kit"; });
+
+// =============================================================== 队友语音
+const PARTY = ["round_won", "mvp", "match_won"];
+const Vc = {
+  dev: null, v: null, timer: 0, busy: false, visible: false, saveT: 0, loaded: false,
+  pct: db => Math.max(0, Math.min(100, (db + 60) / 60 * 100)),
+  async show(){
+    this.visible = true;
+    await this.load();
+    clearInterval(this.timer);
+    this.timer = setInterval(() => this.poll(), 80);
+  },
+  hide(){ this.visible = false; clearInterval(this.timer); this.timer = 0; },
+  async load(){
+    const r = await api("/api/voice/devices", {});
+    this.dev = r; this.v = r.voice; this.loaded = true;
+    this.render();
+  },
+  render(){
+    const d = this.dev, v = this.v;
+    $("#vUnavail").hidden = d.available;
+    if (!d.available) $("#vUnavail").innerHTML = `<b>这台电脑上用不了队友语音</b><p class="hint" style="margin:6px 0 0">${esc(d.error || "")}</p>`;
+    $("#vMain").hidden = !d.available;
+    $("#vNeed").hidden = !d.available || !!d.cable;
+    if (!d.available) return;
+    $("#vOn").checked = v.enabled;
+    const micDefault = d.default_input && !d.inputs.find(i => i.name === d.default_input && i.virtual) ? `系统默认(${d.default_input})` : "系统默认";
+    $("#vMic").innerHTML = `<option value="">${esc(micDefault)}</option>` + d.inputs.map(i =>
+      `<option value="${esc(i.name)}"${i.virtual ? " disabled" : ""}>${esc(i.name)}${i.virtual ? "(虚拟设备,不能当麦克风)" : ""}</option>`).join("");
+    $("#vMic").value = v.mic_device;
+    $("#vOut").innerHTML = `<option value="">${d.cable ? "自动:" + esc(d.cable) : "自动(没找到 VB-CABLE)"}</option>` + d.outputs.map(o =>
+      `<option value="${esc(o.name)}">${esc(o.name)}${o.cable ? "(推荐)" : ""}</option>`).join("");
+    $("#vOut").value = v.out_device;
+    $("#vThr").value = v.threshold_db; $("#vGain").value = v.mic_gain_db; $("#vGate").checked = v.gate;
+    $("#vLvl").value = v.music_level; $("#vDuck").checked = v.duck; $("#vDuckDb").value = v.duck_db;
+    this.labels();
+    const evs = LANES.flatMap(l => l.rows.flat().map(([k]) => [k, l]));
+    $("#vChips").innerHTML = evs.map(([k, l]) => {
+      const on = v.events.includes(k), has = C && C.events[k] && C.events[k].file;
+      return `<button class="vchip${has ? "" : " nofile"}" data-ev="${k}" aria-pressed="${on}" style="--lane:${LANE_COLOR[l.id]}"
+        title="${has ? esc(C.events[k].file) : "这个站点还没配音乐"}"><i></i>${esc(META[k] ? META[k].name : k)}</button>`;
+    }).join("");
+    const withFile = evs.filter(([k]) => C && C.events[k].file);
+    const cur = $("#vTestEv").value;
+    $("#vTestEv").innerHTML = withFile.length ? withFile.map(([k]) => `<option value="${k}">${esc(META[k].name)}</option>`).join("")
+                                               : `<option value="">先给站点配音乐</option>`;
+    if (cur && withFile.some(([k]) => k === cur)) $("#vTestEv").value = cur;
+    else if (withFile.some(([k]) => k === "mvp")) $("#vTestEv").value = "mvp";
+    this.steps();
+  },
+  labels(){
+    const v = this.v;
+    $("#vThrV").textContent = `${v.threshold_db} dB`;
+    $("#vGainV").textContent = `${v.mic_gain_db > 0 ? "+" : ""}${v.mic_gain_db} dB`;
+    $("#vLvlV").textContent = `${Math.round(v.music_level * 100)}%`;
+    $("#vDuckV").textContent = `${v.duck_db} dB`;
+    $("#vDuckBox").hidden = !v.duck;
+    $("#mThr").style.left = this.pct(v.threshold_db) + "%";
+  },
+  steps(){
+    const d = this.dev, m = this.m || {};
+    const cable = !!d.cable, running = m.status === "on";
+    $("#vSteps").innerHTML = `
+      <li class="${cable ? "done" : ""}"><b>安装虚拟声卡 VB-CABLE</b>
+        ${cable ? `<span class="hint">已检测到「${esc(d.cable)}」。</span>`
+                : `<span class="hint"><b style="display:inline">需要你自己下载</b>(免费,本程序不附带):到 <a href="https://vb-audio.com/Cable/" target="_blank" rel="noopener">vb-audio.com/Cable</a> 下载,解压后右键 <code>VBCABLE_Setup_x64.exe</code> →「以管理员身份运行」→ Install,装完<b style="display:inline">重启电脑</b>。程序自己做不出麦克风设备,需要它当中转。</span>`}</li>
+      <li class="${running ? "done" : ""}"><b>打开上面的「把音乐播给队友」</b>
+        <span class="hint">麦克风选你平时用的那个;「送到」保持自动(CABLE Input)。</span></li>
+      <li><b>让游戏把虚拟声卡当麦克风</b>
+        <span class="hint">Steam → 设置 → 语音 → 语音输入设备,选 <b style="display:inline">CABLE Output (VB-Audio Virtual Cable)</b>。CS2 的 设置 › 音频 里如果有「语音输入设备」,也选它。</span></li>
+      <li><b>进游戏,按说话键</b>
+        <span class="hint">和平时一样,按住说话键时队友才听得到(音乐也是)。想先确认效果:在 Steam 语音设置里点「开始麦克风测试」,同时在这里点「发送测试」,你会听到队友听到的声音。</span></li>`;
+  },
+  save(patch, now){
+    Object.assign(this.v, patch);
+    this.labels();
+    clearTimeout(this.saveT);
+    this.saveT = setTimeout(async () => {
+      const r = await api("/api/voice/config", {voice: this.v});
+      if (!r.ok) return toast(r.error, true);
+      this.v = r.voice; this.meters(r.meters); this.steps();
+    }, now ? 0 : 160);
+  },
+  async poll(){
+    if (this.busy || !this.visible) return;
+    this.busy = true;
+    try { this.meters(await api("/api/voice/meters", {})); } catch {} finally { this.busy = false; }
+  },
+  meters(m){
+    if (!m) return;
+    const prev = this.m && this.m.status;
+    this.m = m;
+    const live = m.status === "on";
+    $("#vChain").classList.toggle("live", live);
+    $("#vChain").classList.toggle("off", !live);
+    const st = $("#vStat");
+    st.className = "vstat" + (live ? " on" : m.status === "error" ? " err" : "");
+    st.textContent = live ? `正在运行 · ${m.rate / 1000} kHz` : m.status === "error" ? m.error : (this.v && this.v.enabled ? "正在启动…" : "已关闭");
+    $("#vLat").textContent = live && m.latency_ms != null ? `延迟约 ${m.latency_ms} 毫秒` : "";
+    $("#vWarn").hidden = !m.warning; $("#vWarn").textContent = m.warning || "";
+    $("#mMic > i").style.width = (live ? this.pct(m.mic_db) : 0) + "%";
+    $("#mMus > i").style.width = (live ? this.pct(m.music_db) : 0) + "%";
+    $("#mOut > i").style.width = (live ? this.pct(m.out_db) : 0) + "%";
+    $("#vTalk").classList.toggle("on", live && m.speaking);
+    const sending = (m.sending || []).filter(t => t === "test" || META[t]);
+    $("#vSending").innerHTML = !live ? "没有在送" : sending.length
+      ? "正在送:" + sending.map(t => `<b>${t === "test" ? "测试音乐" : esc(META[t].name)}</b>`).join("、") + (m.speaking && this.v.duck ? `(你在说话,已压低 ${Math.round(-m.duck_db)} dB)` : "")
+      : "没有在送(站点开始放音乐时会自动送)";
+    $("#vTest").disabled = !live || !$("#vTestEv").value;
+    if (prev !== m.status) this.steps();
+  },
+  pill(){
+    const s = S && S.voice, el = $("#vpill");
+    if (!s || !s.enabled) { el.className = "vpill"; return; }
+    const air = s.status === "on" && s.sending && s.sending.length;
+    el.className = "vpill show" + (s.status === "error" ? " err" : air ? " air" : s.status === "on" ? " on" : "");
+    el.title = (s.status === "error" ? "队友语音出错:" + s.error : air ? "队友正在听你的音乐" : "队友语音已开启") + "(实验性功能)";
+    $("span", el).textContent = air ? "队友在听" : "队友语音";
+  },
+};
+$("#vOn").addEventListener("change", e => Vc.save({enabled: e.target.checked}, true));
+$("#vRecheck").addEventListener("click", async () => {
+  await Vc.load();
+  toast(Vc.dev && Vc.dev.cable ? "检测到 VB-CABLE 了" : "还是没有检测到 VB-CABLE。装完需要重启电脑", !(Vc.dev && Vc.dev.cable));
+});
+$("#vMic").addEventListener("change", e => Vc.save({mic_device: e.target.value}, true));
+$("#vOut").addEventListener("change", e => Vc.save({out_device: e.target.value}, true));
+$("#vThr").addEventListener("input", e => Vc.save({threshold_db: +e.target.value}));
+$("#vGain").addEventListener("input", e => Vc.save({mic_gain_db: +e.target.value}));
+$("#vLvl").addEventListener("input", e => Vc.save({music_level: +e.target.value}));
+$("#vDuckDb").addEventListener("input", e => Vc.save({duck_db: +e.target.value}));
+$("#vGate").addEventListener("change", e => Vc.save({gate: e.target.checked}, true));
+$("#vDuck").addEventListener("change", e => Vc.save({duck: e.target.checked}, true));
+$("#vChips").addEventListener("click", e => {
+  const b = e.target.closest("[data-ev]"); if (!b) return;
+  const on = b.getAttribute("aria-pressed") !== "true";
+  b.setAttribute("aria-pressed", on);
+  const set = new Set(Vc.v.events); on ? set.add(b.dataset.ev) : set.delete(b.dataset.ev);
+  Vc.save({events: [...set]}, true);
+});
+$$("[data-preset]").forEach(b => b.addEventListener("click", () => {
+  const all = Object.keys(META);
+  Vc.save({events: b.dataset.preset === "all" ? all : b.dataset.preset === "party" ? PARTY : []}, true);
+  Vc.render();
+}));
+$("#vTest").addEventListener("click", async () => {
+  const r = await api("/api/voice/test", {event: $("#vTestEv").value});
+  if (!r.ok) return toast(r.error, true);
+  toast("正在把这段音乐送给队友 8 秒(你自己听不到,可在 Steam 麦克风测试里听)");
+});
+
+// =============================================================== 轮询
+async function refresh(full){
+  let s;
+  try { s = await api("/api/state"); }
+  catch { $("#hud").innerHTML = `<span class="hud-dot"></span><span class="warn">程序没有在运行</span>`; return; }
+  S = s;
+  const first = !C;
+  if (first || full) {
+    C = JSON.parse(JSON.stringify(S.config));
+    META = Object.fromEntries(S.meta.map(m => [m.key, m]));
+  }
+  const sig = JSON.stringify(S.library);
+  const libChanged = sig !== libSig;
+  if (libChanged) { libSig = sig; LIB = S.library; }
+  if (first || full) { renderSettings(); Studio.fillEvSelect(); }
+  if (first || full || libChanged) { renderKit(); renderLibList(); renderAiFiles(); if (drawerKey) fillDrawer(drawerKey); }
+  if (document.activeElement !== $("#master")) $("#master").value = C.master_volume;
+  renderHUD(); renderNP(); handleFeed(); handleProc(); markPlaying(); renderCfgStatus(); Vc.pill(); Demo.sync();
+  if (location.hash === "#guide") Guide.render();
+}
+
+route();
+refresh(true).then(() => {
+  pollAi();
+  Cm.init();
+  // 新用户(还没配任何站点,也没看过教程)第一次打开时,直接进教程
+  if (S.guide && !S.guide.seen && !Object.values(C.events).some(e => e.file) && (!location.hash || location.hash === "#kit"))
+    location.hash = "#guide";
+  let last = null; try { last = localStorage.getItem("mb_last_file"); } catch {}
+  if (last && libHas(last) && location.hash === "#studio") Studio.open(last);
+  route();
+});
+setInterval(() => refresh(false), 1000);
+</script>
+</body>
+</html>

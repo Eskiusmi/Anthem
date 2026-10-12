@@ -1,0 +1,4 @@
+fastapi>=0.110
+uvicorn>=0.29
+# 只有设置了 DATABASE_URL(用 PostgreSQL)时才会用到
+psycopg[binary,pool]>=3.2

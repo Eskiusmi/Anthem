@@ -1,0 +1,41 @@
+# Render Blueprint:一键部署「CS2 音乐盒」社区服务器
+#
+# 用法:把整个项目推到 GitHub → Render 控制台 New → Blueprint → 选这个仓库 → 按提示填两个值 → Deploy。
+# 详细步骤见 community/RENDER.md。
+#
+# 默认方案(全免费):Render 免费网页服务 + Neon 免费 PostgreSQL。
+#   Render 免费服务没有持久磁盘,重启/休眠后本地文件会清空,所以账号和音乐盒存在 Neon 里。
+#   免费服务闲置 15 分钟会休眠,下次有人访问时约 1 分钟唤醒(本地程序会显示「正在唤醒」)。
+#
+# 付费方案(约 7.25 美元/月,不休眠,不需要 Neon):见文件末尾。
+
+services:
+  - type: web
+    name: cs2-musicbox-community        # 网址会是 https://<这个名字>.onrender.com(重名时 Render 会加后缀)
+    runtime: docker
+    plan: free
+    region: oregon                      # 创建后不能改。可选 oregon / ohio / virginia / frankfurt / singapore
+    dockerContext: ./community          # 只构建仓库里的 community 文件夹
+    dockerfilePath: ./community/Dockerfile
+    buildFilter:
+      paths:
+        - community/**                  # 只有社区服务器的代码变了才重新部署,改本地程序不会触发
+    healthCheckPath: /api/ping
+    autoDeployTrigger: commit
+    envVars:
+      - key: DATABASE_URL               # 创建时会让你填:粘贴 Neon 的连接串(postgresql://...)
+        sync: false
+      - key: MB_ADMIN_EMAILS            # 创建时会让你填:你的注册邮箱(管理员能看举报、删除任何音乐盒)
+        sync: false
+      - key: MB_TRUST_PROXY             # Render 前面有代理,用它转发的真实 IP 做限流
+        value: "1"
+
+# ---------------------------------------------------------------- 付费方案
+# 把上面的 plan: free 改成 plan: 0.5c-512mb(7 美元/月),删掉 DATABASE_URL 那两行,再加上:
+#
+#    disk:
+#      name: community-data
+#      mountPath: /data                 # 数据库文件 /data/community.db 存在这块磁盘上
+#      sizeGB: 1                        # 0.25 美元/GB/月;只能加大不能缩小
+#
+# 磁盘每天自动快照,保留至少 7 天。挂了磁盘的服务只能单实例运行,部署时会有几秒中断。

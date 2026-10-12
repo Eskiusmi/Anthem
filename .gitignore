@@ -1,0 +1,19 @@
+# 个人数据(不要提交:community_account.json 里有社区登录令牌)
+config.json
+community_account.json
+clips.json
+kit_backups/
+analysis_cache/
+music/*
+!music/.gitkeep
+
+# 社区服务器本地数据库
+community/data/
+
+# Python / 打包产物
+__pycache__/
+*.pyc
+.venv*/
+build/
+dist/
+*.spec.bak
